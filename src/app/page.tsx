@@ -110,16 +110,17 @@ export default function Home() {
                 { id: 'dark', label: 'Dark', icon: Moon },
               ].map((layer) => (
                 <Tooltip key={layer.id}>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant={baseLayer === layer.id ? "default" : "ghost"} 
-                      size="sm" 
-                      className="h-8 px-3 rounded-lg text-xs font-semibold"
+                  <TooltipTrigger>
+                    <div
+                      className={cn(
+                        "h-8 px-3 rounded-lg text-xs font-semibold flex items-center cursor-pointer transition-colors",
+                        baseLayer === layer.id ? "bg-primary text-primary-foreground" : "hover:bg-accent"
+                      )}
                       onClick={() => setBaseLayer(layer.id as any)}
                     >
                       <layer.icon className="w-3.5 h-3.5 mr-2" />
                       {layer.label}
-                    </Button>
+                    </div>
                   </TooltipTrigger>
                   <TooltipContent side="bottom">Switch to {layer.label} layer</TooltipContent>
                 </Tooltip>
@@ -182,25 +183,12 @@ export default function Home() {
         {layers.length > 0 && (
           <div className="fixed bottom-6 right-6 z-1000">
             <Tooltip>
-              <TooltipTrigger asChild>
+              <TooltipTrigger>
                 <div className="relative group">
                   <div className="absolute -inset-1 bg-linear-to-r from-primary to-blue-600 rounded-full blur opacity-40 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
                   <Button 
                     size="icon" 
                     className="relative h-12 w-12 rounded-full shadow-2xl border-2 border-background"
-                    onClick={() => {
-                      const input = document.createElement('input');
-                      input.type = 'file';
-                      input.multiple = true;
-                      input.onchange = (e) => {
-                        // FileUploader will handle via the store's addLayer if I expose it or use a ref
-                        // For simplicity, I'll just trigger a hidden upload
-                        const files = (e.target as HTMLInputElement).files;
-                        if (files) {
-                          // Manually trigger the drop logic if needed, but for now I'll just add a "Add Layer" button in the sidebar
-                        }
-                      };
-                    }}
                   >
                     <Plus className="w-6 h-6" />
                   </Button>
