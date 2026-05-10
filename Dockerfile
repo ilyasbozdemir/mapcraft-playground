@@ -1,20 +1,24 @@
-# Stage 1: Install dependencies
-FROM node:20-alpine AS deps
+# Stage 1: Base image
+FROM node:22-alpine AS base
+RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
+
+# Stage 2: Install dependencies
+FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY package.json pnpm-lock.yaml* ./
+RUN pnpm i --frozen-lockfile
 
-# Stage 2: Build the application
-FROM node:20-alpine AS builder
+# Stage 3: Build the application
+FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED 1
-RUN npm run build
+RUN pnpm run build
 
-# Stage 3: Production server
-FROM node:20-alpine AS runner
+# Stage 4: Production server
+FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1

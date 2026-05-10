@@ -1,3 +1,5 @@
+"use client";
+
 import React from 'react';
 import dynamic from 'next/dynamic';
 import { 
@@ -6,8 +8,7 @@ import {
   Settings2, 
   Globe,
   Moon,
-  Sun,
-  Github
+  Sun
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LayerPanel } from '@/components/LayerPanel';
@@ -62,14 +63,14 @@ export default function Home() {
         ]
       };
 
-      const layer = {
+      const layer: any = {
         id: crypto.randomUUID(),
         name: 'Sample Turkish Cities',
-        type: 'geojson' as const,
-        data: sampleData as any,
+        type: 'geojson',
+        data: sampleData,
         visible: true,
         color: '#3b82f6',
-        geometryType: 'Mixed' as const,
+        geometryType: 'Mixed',
         featureCount: 3,
         size: JSON.stringify(sampleData).length,
         createdAt: Date.now(),
@@ -134,7 +135,7 @@ export default function Home() {
               <Settings2 className="w-4 h-4" />
             </Button>
             <Button variant="secondary" size="icon" className="bg-background/80 backdrop-blur-md border border-border rounded-xl shadow-2xl h-9 w-9">
-              <Github className="w-4 h-4" />
+              <Globe className="w-4 h-4" />
             </Button>
           </div>
         </div>
