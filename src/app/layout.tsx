@@ -7,8 +7,10 @@ import { Toaster } from "@/components/ui/sonner";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "MapCraft - GeoSpatial Playground",
-  description: "A modern tool for visualizing and editing GeoJSON, KML, Shapefile, and GPX files.",
+  title: "MapCraft | Advanced Geospatial Playground",
+  description: "A professional tool for visualizing, editing, and exporting GeoJSON, KML, Shapefile, and GPX data with ease.",
+  keywords: ["geojson", "kml", "shapefile", "map", "leaflet", "geospatial", "gis"],
+  authors: [{ name: "Ilyas Bozdemir" }],
 };
 
 export default function RootLayout({
