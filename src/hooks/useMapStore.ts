@@ -1,10 +1,12 @@
 import { create } from 'zustand';
-import { MapState, MapLayer, BaseLayerType } from '@/types/geo';
+import { MapState } from '@/types/geo';
 
 export const useMapStore = create<MapState>((set) => ({
   layers: [],
   selectedLayerId: null,
   baseLayer: 'osm',
+  customBaseUrl: '',
+  drawingMode: 'none',
   isLoading: false,
   addLayer: (layer) => set((state) => ({ 
     layers: [...state.layers, layer],
@@ -25,6 +27,8 @@ export const useMapStore = create<MapState>((set) => ({
     )
   })),
   setBaseLayer: (baseLayer) => set({ baseLayer }),
+  setCustomBaseUrl: (customBaseUrl) => set({ customBaseUrl }),
+  setDrawingMode: (drawingMode) => set({ drawingMode }),
   setSelectedLayerId: (selectedLayerId) => set({ selectedLayerId }),
   setLoading: (isLoading) => set({ isLoading }),
 }));

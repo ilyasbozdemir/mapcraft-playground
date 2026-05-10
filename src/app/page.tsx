@@ -8,7 +8,8 @@ import {
   Settings2, 
   Globe,
   Moon,
-  Sun
+  Sun,
+  Navigation2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LayerPanel } from '@/components/LayerPanel';
@@ -16,6 +17,7 @@ import { FileUploader } from '@/components/FileUploader';
 import { AttributeTable } from '@/components/AttributeTable';
 import { useMapStore } from '@/hooks/useMapStore';
 import { MapLayer, BaseLayerType } from '@/types/geo';
+import { FeatureCollection } from 'geojson';
 import {
   Tooltip,
   TooltipContent,
@@ -23,6 +25,7 @@ import {
 } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { MapToolbar } from '@/components/MapToolbar';
 
 // Dynamic import for Leaflet (client-side only)
 const MapView = dynamic(() => import('@/components/MapView'), { 
@@ -36,12 +39,12 @@ const MapView = dynamic(() => import('@/components/MapView'), {
 });
 
 export default function Home() {
-  const { layers, baseLayer, setBaseLayer, addLayer } = useMapStore();
+  const { layers, baseLayer, setBaseLayer, addLayer, customBaseUrl, setCustomBaseUrl } = useMapStore();
 
   const loadSampleData = async () => {
     try {
       // Small sample GeoJSON (approx coords for Turkey/Istanbul)
-      const sampleData: any = {
+      const sampleData: FeatureCollection = {
         type: 'FeatureCollection',
         features: [
           {
@@ -69,7 +72,7 @@ export default function Home() {
         id: crypto.randomUUID(),
         name: 'Sample Turkish Cities',
         type: 'geojson' as const,
-        data: sampleData as any,
+        data: sampleData,
         visible: true,
         color: '#3b82f6',
         geometryType: 'Mixed' as const,
@@ -111,6 +114,9 @@ export default function Home() {
                 { id: 'osm', label: 'Standard', icon: Globe },
                 { id: 'satellite', label: 'Satellite', icon: Sun },
                 { id: 'dark', label: 'Dark', icon: Moon },
+                { id: 'topo', label: 'Topo', icon: MapIcon },
+                { id: 'terrain', label: 'Terrain', icon: Navigation2 },
+                { id: 'custom', label: 'Custom', icon: Plus },
               ].map((layer) => (
                 <Tooltip key={layer.id}>
                   <TooltipTrigger>
@@ -129,6 +135,18 @@ export default function Home() {
                 </Tooltip>
               ))}
             </div>
+
+            {baseLayer === 'custom' && (
+              <div className="bg-background/80 backdrop-blur-md border border-border rounded-xl p-1 shadow-2xl flex items-center gap-1 pointer-events-auto animate-in slide-in-from-left-2 fade-in">
+                <input 
+                  type="text" 
+                  placeholder="https://{s}.tile.osm.org/{z}/{x}/{y}.png"
+                  className="bg-transparent border-none focus:ring-0 text-[10px] px-2 w-48 font-mono"
+                  value={customBaseUrl}
+                  onChange={(e) => setCustomBaseUrl(e.target.value)}
+                />
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2 pointer-events-auto">
@@ -175,7 +193,10 @@ export default function Home() {
               </div>
             </div>
           ) : (
-            <MapView />
+            <>
+              <MapView />
+              <MapToolbar />
+            </>
           )}
         </div>
 
