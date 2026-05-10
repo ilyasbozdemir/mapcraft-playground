@@ -15,12 +15,14 @@ import { LayerPanel } from '@/components/LayerPanel';
 import { FileUploader } from '@/components/FileUploader';
 import { AttributeTable } from '@/components/AttributeTable';
 import { useMapStore } from '@/hooks/useMapStore';
+import { MapLayer, BaseLayerType } from '@/types/geo';
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 // Dynamic import for Leaflet (client-side only)
 const MapView = dynamic(() => import('@/components/MapView'), { 
@@ -39,7 +41,7 @@ export default function Home() {
   const loadSampleData = async () => {
     try {
       // Small sample GeoJSON (approx coords for Turkey/Istanbul)
-      const sampleData = {
+      const sampleData: any = {
         type: 'FeatureCollection',
         features: [
           {
@@ -63,14 +65,14 @@ export default function Home() {
         ]
       };
 
-      const layer: any = {
+      const layer: MapLayer = {
         id: crypto.randomUUID(),
         name: 'Sample Turkish Cities',
-        type: 'geojson',
-        data: sampleData,
+        type: 'geojson' as const,
+        data: sampleData as any,
         visible: true,
         color: '#3b82f6',
-        geometryType: 'Mixed',
+        geometryType: 'Mixed' as const,
         featureCount: 3,
         size: JSON.stringify(sampleData).length,
         createdAt: Date.now(),
@@ -79,6 +81,7 @@ export default function Home() {
       addLayer(layer);
       toast.success('Sample data loaded successfully');
     } catch (err) {
+      console.error(err);
       toast.error('Failed to load sample data');
     }
   };
@@ -116,7 +119,7 @@ export default function Home() {
                         "h-8 px-3 rounded-lg text-xs font-semibold flex items-center cursor-pointer transition-colors",
                         baseLayer === layer.id ? "bg-primary text-primary-foreground" : "hover:bg-accent"
                       )}
-                      onClick={() => setBaseLayer(layer.id as any)}
+                      onClick={() => setBaseLayer(layer.id as BaseLayerType)}
                     >
                       <layer.icon className="w-3.5 h-3.5 mr-2" />
                       {layer.label}
