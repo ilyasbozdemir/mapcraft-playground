@@ -12,9 +12,10 @@ import { useMapStore } from '@/hooks/useMapStore';
 import { MapLayer } from '@/types/geo';
 import { toast } from 'sonner';
 import { FeatureCollection } from 'geojson';
+import { cn } from '@/lib/utils';
 
 export function DrawingLayer() {
-  const { drawingMode, setDrawingMode, addLayer } = useMapStore();
+  const { drawingMode, setDrawingMode, addLayer, setSelectedLayerId } = useMapStore();
   const [points, setPoints] = useState<L.LatLng[]>([]);
   const [mousePos, setMousePos] = useState<L.LatLng | null>(null);
 
@@ -72,7 +73,7 @@ export function DrawingLayer() {
           }
         }))
       };
-      name = 'New Points';
+      name = 'New Point';
     }
 
     const newLayer: MapLayer = {
@@ -82,34 +83,56 @@ export function DrawingLayer() {
       data: geojson,
       visible: true,
       color: '#' + Math.floor(Math.random()*16777215).toString(16),
-      geometryType: drawingMode.charAt(0).toUpperCase() + drawingMode.slice(1) as any,
+      geometryType: (drawingMode.charAt(0).toUpperCase() + drawingMode.slice(1)) as "Point" | "Line" | "Polygon" | "Mixed",
       featureCount: geojson.features.length,
       size: JSON.stringify(geojson).length,
       createdAt: Date.now(),
     };
 
     addLayer(newLayer);
+    setSelectedLayerId(newLayer.id);
     toast.success(`Created ${name}`);
     clearDrawing();
     setDrawingMode('none');
-  }, [points, drawingMode, addLayer, clearDrawing, setDrawingMode]);
+  }, [points, drawingMode, addLayer, clearDrawing, setDrawingMode, setSelectedLayerId]);
 
-  useMapEvents({
+  const SNAP_THRESHOLD = 20; // pixels
+
+  const getSnappedPoint = useCallback((latlng: L.LatLng, mapInstance: L.Map) => {
+    if (points.length === 0) return null;
+
+    const mousePoint = mapInstance.latLngToContainerPoint(latlng);
+    
+    // Check snapping to the first point
+    const firstPoint = mapInstance.latLngToContainerPoint(points[0]);
+    const dist = mousePoint.distanceTo(firstPoint);
+
+    if (dist < SNAP_THRESHOLD) {
+      return points[0];
+    }
+
+    return null;
+  }, [points]);
+
+  const isSnapped = mousePos && points.length > 0 && mousePos.equals(points[0]);
+
+  const map = useMapEvents({
     click(e) {
       if (drawingMode === 'none') return;
       
-      if (drawingMode === 'point') {
-        const newPoints = [...points, e.latlng];
-        // For points, we might want to finish immediately or keep adding.
-        // Let's keep adding until they press finish (or ESC).
-        setPoints(newPoints);
-      } else {
-        setPoints(prev => [...prev, e.latlng]);
+      const snapped = getSnappedPoint(e.latlng, map);
+
+      if (snapped && points.length >= (drawingMode === 'polygon' ? 3 : 2)) {
+        finishDrawing();
+        return;
       }
+
+      setPoints(prev => [...prev, e.latlng]);
     },
     mousemove(e) {
       if (drawingMode !== 'none' && points.length > 0) {
-        setMousePos(e.latlng);
+        const snapped = getSnappedPoint(e.latlng, map);
+        setMousePos(snapped || e.latlng);
       }
     },
     keydown(e) {
@@ -131,8 +154,13 @@ export function DrawingLayer() {
         <CircleMarker 
           key={i} 
           center={p} 
-          radius={5} 
-          pathOptions={{ color: 'white', fillColor: '#3b82f6', fillOpacity: 1, weight: 2 }} 
+          radius={i === 0 && points.length >= 2 ? 8 : 5} 
+          pathOptions={{ 
+            color: 'white', 
+            fillColor: i === 0 && isSnapped ? '#22c55e' : '#3b82f6', 
+            fillOpacity: 1, 
+            weight: 2 
+          }} 
         />
       ))}
 
@@ -140,23 +168,28 @@ export function DrawingLayer() {
       {drawingMode === 'line' && points.length > 0 && (
         <Polyline 
           positions={mousePos ? [...points, mousePos] : points} 
-          pathOptions={{ color: '#3b82f6', weight: 3, dashArray: '5, 10' }} 
+          pathOptions={{ color: isSnapped ? '#22c55e' : '#3b82f6', weight: 3, dashArray: '5, 10' }} 
         />
       )}
 
       {drawingMode === 'polygon' && points.length > 0 && (
         <Polygon 
           positions={mousePos ? [...points, mousePos] : points} 
-          pathOptions={{ color: '#3b82f6', weight: 2, fillOpacity: 0.2, dashArray: '5, 10' }} 
+          pathOptions={{ color: isSnapped ? '#22c55e' : '#3b82f6', weight: 2, fillOpacity: 0.2, dashArray: '5, 10' }} 
         />
       )}
 
       {/* Finish Button Tooltip/Helper */}
       {points.length > 0 && (
         <div className="fixed bottom-32 left-1/2 -translate-x-1/2 z-2000 pointer-events-none">
-          <div className="bg-primary text-primary-foreground px-4 py-2 rounded-full shadow-2xl flex items-center gap-3 animate-bounce">
+          <div className={cn(
+            "px-4 py-2 rounded-full shadow-2xl flex items-center gap-3 animate-bounce transition-colors duration-300",
+            isSnapped ? "bg-green-600 text-white" : "bg-primary text-primary-foreground"
+          )}>
             <span className="text-xs font-bold uppercase tracking-widest">
-              {points.length} points • Press Enter to Finish • Esc to Cancel
+              {isSnapped 
+                ? "Click start point to finish" 
+                : `${points.length} points • Press Enter to Finish • Esc to Cancel`}
             </span>
           </div>
         </div>

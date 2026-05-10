@@ -17,7 +17,7 @@ import {
   DrawerTrigger,
 } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
-import { Database, ChevronUp, Maximize2, X } from 'lucide-react';
+import { Database, ChevronUp, Maximize2 } from 'lucide-react';
 import { useMapStore } from '@/hooks/useMapStore';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -36,14 +36,15 @@ export function AttributeTable() {
       <DrawerTrigger>
         <Button 
           variant="secondary" 
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-500 shadow-2xl gap-2 rounded-full px-6 border border-primary/20 hover:border-primary/50 transition-all group"
+          className="fixed bottom-4 md:bottom-6 left-1/2 -translate-x-1/2 z-500 shadow-2xl gap-2 rounded-full px-4 md:px-6 h-10 md:h-11 border border-primary/20 hover:border-primary/50 transition-all group"
         >
           <Database className="w-4 h-4 text-primary group-hover:scale-110 transition-transform" />
-          <span className="font-semibold text-xs uppercase tracking-widest">Attribute Table</span>
-          <Badge variant="secondary" className="ml-1 px-1 h-4 min-w-5 text-[10px] bg-primary/10 text-primary border-0">
+          <span className="hidden sm:inline font-semibold text-xs uppercase tracking-widest">Attribute Table</span>
+          <span className="sm:hidden font-semibold text-xs uppercase tracking-widest">Data</span>
+          <Badge variant="secondary" className="ml-0.5 md:ml-1 px-1 h-4 min-w-5 text-[10px] bg-primary/10 text-primary border-0">
             {selectedLayer.featureCount}
           </Badge>
-          <ChevronUp className="w-4 h-4 ml-1 opacity-50" />
+          <ChevronUp className="w-4 h-4 ml-0.5 md:ml-1 opacity-50" />
         </Button>
       </DrawerTrigger>
       <DrawerContent className="h-[70vh] px-4 pb-4">

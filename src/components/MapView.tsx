@@ -124,13 +124,9 @@ export default function MapView() {
             data={layer.data}
             style={() => getStyle(layer)}
             pointToLayer={(feature, latlng) => {
-              return L.circleMarker(latlng, {
-                radius: 6,
-                fillColor: layer.color,
-                color: "#fff",
-                weight: 2,
-                opacity: 1,
-                fillOpacity: 0.8
+              return L.marker(latlng, {
+                title: feature.properties?.name || 'New Point',
+                alt: 'Marker'
               });
             }}
             onEachFeature={onEachFeature}

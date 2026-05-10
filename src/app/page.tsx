@@ -49,7 +49,6 @@ export default function Home() {
   const { layers, baseLayer, setBaseLayer, addLayer, customBaseUrl, setCustomBaseUrl } = useMapStore();
 
   const loadSampleData = async () => {
-    // ... same code
     try {
       const sampleData: FeatureCollection = {
         type: 'FeatureCollection',
@@ -111,7 +110,7 @@ export default function Home() {
             {/* Mobile Sidebar Toggle */}
             <div className="md:hidden">
               <Sheet>
-                <SheetTrigger asChild>
+                <SheetTrigger>
                   <Button variant="secondary" size="icon" className="bg-background/80 backdrop-blur-md border border-border rounded-xl shadow-2xl h-9 w-9">
                     <Menu className="w-4 h-4" />
                   </Button>
@@ -186,29 +185,34 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Map View */}
-        <div className="flex-1 w-full h-full">
-          {layers.length === 0 ? (
-            <div className="w-full h-full flex items-center justify-center p-6 bg-muted/10">
-              <div className="max-w-xl w-full">
-                <div className="text-center mb-8">
-                  <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center mx-auto mb-6 ring-1 ring-primary/20">
-                    <Plus className="w-10 h-10 text-primary" />
-                  </div>
-                  <h2 className="text-4xl font-black tracking-tight mb-3 italic">READY TO MAP?</h2>
-                  <p className="text-muted-foreground text-lg">
-                    Drop your spatial files below to begin your exploration.
-                  </p>
+        <div className="flex-1 w-full h-full relative">
+          <MapView />
+          <MapToolbar />
+          <AttributeTable />
+        </div>
+
+        {layers.length === 0 && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none p-6">
+            <div className="max-w-xl w-full pointer-events-auto">
+              <div className="bg-background/90 backdrop-blur-xl border border-border rounded-[2.5rem] p-8 md:p-12 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.2)] text-center">
+                <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center mx-auto mb-8 rotate-3 hover:rotate-0 transition-transform duration-500">
+                  <MapIcon className="w-10 h-10 text-primary" />
                 </div>
+                <h2 className="text-3xl md:text-4xl font-black tracking-tight mb-4 bg-gradient-to-br from-foreground to-foreground/60 bg-clip-text text-transparent italic">
+                  Craft Your World
+                </h2>
+                <p className="text-muted-foreground mb-10 text-base md:text-lg font-medium max-w-sm mx-auto leading-relaxed">
+                  Start by uploading spatial data or use the drawing tools to create new geometries.
+                </p>
                 <FileUploader className="bg-background/50 backdrop-blur-sm shadow-2xl border-primary/20" />
                 
-                <div className="mt-12 grid grid-cols-3 gap-6">
+                <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6 px-4 sm:px-0">
                   {[
                     { title: 'GeoJSON', desc: 'Standard JSON spatial data' },
                     { title: 'KML/KMZ', desc: 'Google Earth & Maps' },
                     { title: 'Shapefiles', desc: 'Industry standard ESRI' },
                   ].map((item, i) => (
-                    <div key={i} className="p-4 rounded-2xl bg-card border border-border/50 text-center hover:border-primary/50 transition-colors">
+                    <div key={i} className="p-4 rounded-2xl bg-card border border-border/50 text-center hover:border-primary/50 transition-all hover:shadow-lg">
                       <h4 className="font-bold text-xs uppercase tracking-widest text-primary mb-1">{item.title}</h4>
                       <p className="text-[10px] text-muted-foreground font-medium">{item.desc}</p>
                     </div>
@@ -216,34 +220,6 @@ export default function Home() {
                 </div>
               </div>
             </div>
-          ) : (
-            <>
-              <MapView />
-              <MapToolbar />
-            </>
-          )}
-        </div>
-
-        {/* Feature Tools / Bottom Panel */}
-        <AttributeTable />
-        
-        {/* Dropzone overlay when map is loaded */}
-        {layers.length > 0 && (
-          <div className="fixed bottom-6 right-6 z-1000">
-            <Tooltip>
-              <TooltipTrigger>
-                <div className="relative group">
-                  <div className="absolute -inset-1 bg-linear-to-r from-primary to-blue-600 rounded-full blur opacity-40 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
-                  <Button 
-                    size="icon" 
-                    className="relative h-12 w-12 rounded-full shadow-2xl border-2 border-background"
-                  >
-                    <Plus className="w-6 h-6" />
-                  </Button>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="left">Add new layer</TooltipContent>
-            </Tooltip>
           </div>
         )}
       </div>

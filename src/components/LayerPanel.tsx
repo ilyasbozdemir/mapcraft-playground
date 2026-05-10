@@ -8,7 +8,6 @@ import {
   Layers, 
   Info, 
   MoreVertical, 
-  MapPin, 
   Share2, 
   Download,
   Palette
@@ -86,10 +85,19 @@ export function LayerPanel() {
                 onClick={() => setSelectedLayerId(layer.id)}
               >
                 <div className="flex items-start justify-between gap-2 mb-2">
-                  <div className="flex flex-col min-w-0">
-                    <span className="font-medium text-sm truncate pr-6" title={layer.name}>
-                      {layer.name}
-                    </span>
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <input
+                      className="font-medium text-sm truncate pr-6 bg-transparent border-none focus:ring-1 focus:ring-primary rounded px-1 -ml-1 w-full outline-none"
+                      value={layer.name}
+                      onChange={(e) => {
+                        const newName = e.target.value;
+                        useMapStore.setState(state => ({
+                          layers: state.layers.map(l => l.id === layer.id ? { ...l, name: newName } : l)
+                        }));
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      title="Click to rename"
+                    />
                     <div className="flex items-center gap-2 mt-1">
                       <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-background">
                         {layer.type.toUpperCase()}
@@ -118,7 +126,7 @@ export function LayerPanel() {
                     </Button>
                     
                     <DropdownMenu>
-                      <DropdownMenuTrigger>
+                      <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-7 w-7">
                           <MoreVertical className="w-4 h-4" />
                         </Button>
