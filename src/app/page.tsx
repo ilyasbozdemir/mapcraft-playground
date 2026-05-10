@@ -98,24 +98,24 @@ export default function Home() {
   return (
     <main className="flex h-screen w-screen overflow-hidden bg-background">
       {/* Desktop Sidebar */}
-      <div className="hidden md:block">
+      <div className="hidden lg:block">
         <LayerPanel />
       </div>
 
       {/* Main Content Area */}
-      <div className="relative flex-1 h-full flex flex-col">
+      <div className="relative flex-1 h-full flex flex-col overflow-hidden">
         {/* Top Floating Navbar */}
         <div className="absolute top-4 md:top-6 left-4 md:left-6 right-4 md:right-6 z-1000 flex items-center justify-between pointer-events-none">
           <div className="flex items-center gap-2 md:gap-3 pointer-events-auto">
             {/* Mobile Sidebar Toggle */}
-            <div className="md:hidden">
+            <div className="lg:hidden">
               <Sheet>
                 <SheetTrigger>
                   <Button variant="secondary" size="icon" className="bg-background/80 backdrop-blur-md border border-border rounded-xl shadow-2xl h-9 w-9">
                     <Menu className="w-4 h-4" />
                   </Button>
                 </SheetTrigger>
-                <SheetContent side="left" className="p-0 w-[320px] border-r-0">
+                <SheetContent side="left" className="p-0 w-[300px] sm:w-[320px] border-r-0">
                   <LayerPanel />
                 </SheetContent>
               </Sheet>
@@ -198,10 +198,10 @@ export default function Home() {
                 <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center mx-auto mb-8 rotate-3 hover:rotate-0 transition-transform duration-500">
                   <MapIcon className="w-10 h-10 text-primary" />
                 </div>
-                <h2 className="text-3xl md:text-4xl font-black tracking-tight mb-4 bg-gradient-to-br from-foreground to-foreground/60 bg-clip-text text-transparent italic">
+                <h2 className="text-2xl md:text-3xl lg:text-4xl font-black tracking-tight mb-4 bg-linear-to-br from-foreground to-foreground/60 bg-clip-text text-transparent italic">
                   Craft Your World
                 </h2>
-                <p className="text-muted-foreground mb-10 text-base md:text-lg font-medium max-w-sm mx-auto leading-relaxed">
+                <p className="text-muted-foreground mb-8 md:mb-10 text-sm md:text-base lg:text-lg font-medium max-w-sm mx-auto leading-relaxed px-4 md:px-0">
                   Start by uploading spatial data or use the drawing tools to create new geometries.
                 </p>
                 <FileUploader className="bg-background/50 backdrop-blur-sm shadow-2xl border-primary/20" />
