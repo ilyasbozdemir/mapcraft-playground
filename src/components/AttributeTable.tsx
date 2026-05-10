@@ -33,7 +33,7 @@ export function AttributeTable() {
 
   return (
     <Drawer>
-      <DrawerTrigger asChild>
+      <DrawerTrigger>
         <Button 
           variant="secondary" 
           className="fixed bottom-6 left-1/2 -translate-x-1/2 z-500 shadow-2xl gap-2 rounded-full px-6 border border-primary/20 hover:border-primary/50 transition-all group"
