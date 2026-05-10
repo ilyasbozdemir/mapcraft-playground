@@ -1,12 +1,12 @@
 import { kml } from '@tmcw/togeojson';
-import { FeatureCollection } from 'geojson';
+import { FeatureCollection, Geometry } from 'geojson';
 import JSZip from 'jszip';
 
 export const parseKML = async (file: File): Promise<FeatureCollection> => {
   const text = await file.text();
   const parser = new DOMParser();
   const xml = parser.parseFromString(text, 'text/xml');
-  return kml(xml);
+  return kml(xml) as FeatureCollection<Geometry>;
 };
 
 export const parseKMZ = async (file: File): Promise<FeatureCollection> => {
@@ -20,5 +20,5 @@ export const parseKMZ = async (file: File): Promise<FeatureCollection> => {
   const kmlText = await kmlFile.async('string');
   const parser = new DOMParser();
   const xml = parser.parseFromString(kmlText, 'text/xml');
-  return kml(xml);
+  return kml(xml) as FeatureCollection<Geometry>;
 };

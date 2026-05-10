@@ -2,16 +2,15 @@
 
 import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, FileCode, Map as MapIcon, Loader2 } from 'lucide-react';
+import { Upload, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { v4 as uuidv4 } from 'uuid';
 import { useMapStore } from '@/hooks/useMapStore';
 import { parseGeoJSON } from '@/lib/parsers/parseGeoJSON';
 import { parseKML, parseKMZ } from '@/lib/parsers/parseKML';
 import { parseGPX } from '@/lib/parsers/parseGPX';
 import { parseShapefileZip, parseShapefileFiles } from '@/lib/parsers/parseShapefile';
 import { getRandomColor, getGeometryType } from '@/lib/geoUtils';
-import { MapLayer, GeometryType } from '@/types/geo';
+import { MapLayer } from '@/types/geo';
 import { cn } from '@/lib/utils';
 
 export function FileUploader({ className }: { className?: string }) {
