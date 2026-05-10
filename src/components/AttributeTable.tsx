@@ -36,11 +36,11 @@ export function AttributeTable() {
       <DrawerTrigger asChild>
         <Button 
           variant="secondary" 
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[500] shadow-2xl gap-2 rounded-full px-6 border border-primary/20 hover:border-primary/50 transition-all group"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-500 shadow-2xl gap-2 rounded-full px-6 border border-primary/20 hover:border-primary/50 transition-all group"
         >
           <Database className="w-4 h-4 text-primary group-hover:scale-110 transition-transform" />
           <span className="font-semibold text-xs uppercase tracking-widest">Attribute Table</span>
-          <Badge variant="secondary" className="ml-1 px-1 h-4 min-w-[1.25rem] text-[10px] bg-primary/10 text-primary border-0">
+          <Badge variant="secondary" className="ml-1 px-1 h-4 min-w-5 text-[10px] bg-primary/10 text-primary border-0">
             {selectedLayer.featureCount}
           </Badge>
           <ChevronUp className="w-4 h-4 ml-1 opacity-50" />

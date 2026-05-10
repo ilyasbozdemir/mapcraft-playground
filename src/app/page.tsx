@@ -90,7 +90,7 @@ export default function Home() {
       {/* Main Content Area */}
       <div className="relative flex-1 h-full flex flex-col">
         {/* Top Floating Navbar */}
-        <div className="absolute top-6 left-6 right-6 z-[1000] flex items-center justify-between pointer-events-none">
+        <div className="absolute top-6 left-6 right-6 z-1000 flex items-center justify-between pointer-events-none">
           <div className="flex items-center gap-3 pointer-events-auto">
             <div className="bg-background/80 backdrop-blur-md border border-border rounded-xl px-4 py-2 shadow-2xl flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
@@ -183,7 +183,7 @@ export default function Home() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="relative group">
-                  <div className="absolute -inset-1 bg-gradient-to-r from-primary to-blue-600 rounded-full blur opacity-40 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
+                  <div className="absolute -inset-1 bg-linear-to-r from-primary to-blue-600 rounded-full blur opacity-40 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
                   <Button 
                     size="icon" 
                     className="relative h-12 w-12 rounded-full shadow-2xl border-2 border-background"

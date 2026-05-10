@@ -128,7 +128,7 @@ export default function MapView() {
         />
       ))}
       
-      <div className="absolute bottom-6 right-6 z-[1000] flex flex-col gap-2">
+      <div className="absolute bottom-6 right-6 z-1000 flex flex-col gap-2">
         <div className="bg-background/80 backdrop-blur-md border border-border rounded-lg p-1 shadow-2xl flex flex-col gap-1">
           {/* Zoom controls and other map buttons could go here */}
         </div>
