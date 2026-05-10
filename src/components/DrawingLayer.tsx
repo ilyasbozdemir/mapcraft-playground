@@ -9,7 +9,7 @@ import {
 } from 'react-leaflet';
 import L from 'leaflet';
 import { useMapStore } from '@/hooks/useMapStore';
-import { MapLayer } from '@/types/geo';
+import { MapLayer, GeometryType } from '@/types/geo';
 import { toast } from 'sonner';
 import { FeatureCollection } from 'geojson';
 import { cn } from '@/lib/utils';
@@ -83,7 +83,7 @@ export function DrawingLayer() {
       data: geojson,
       visible: true,
       color: '#' + Math.floor(Math.random()*16777215).toString(16),
-      geometryType: (drawingMode.charAt(0).toUpperCase() + drawingMode.slice(1)) as "Point" | "Line" | "Polygon" | "Mixed",
+      geometryType: (drawingMode === 'line' ? 'LineString' : drawingMode === 'polygon' ? 'Polygon' : drawingMode === 'point' ? 'Point' : 'Mixed') as GeometryType | "Mixed",
       featureCount: geojson.features.length,
       size: JSON.stringify(geojson).length,
       createdAt: Date.now(),

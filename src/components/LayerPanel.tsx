@@ -126,11 +126,11 @@ export function LayerPanel() {
                     </Button>
                     
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
+                      <DropdownMenuTrigger render={
                         <Button variant="ghost" size="icon" className="h-7 w-7">
                           <MoreVertical className="w-4 h-4" />
                         </Button>
-                      </DropdownMenuTrigger>
+                      } />
                       <DropdownMenuContent align="end" className="w-40">
                         <DropdownMenuItem onClick={() => exportLayer(layer.id)}>
                           <Download className="w-4 h-4 mr-2" />
