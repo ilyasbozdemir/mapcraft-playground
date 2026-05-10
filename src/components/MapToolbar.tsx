@@ -29,8 +29,8 @@ export function MapToolbar() {
   ];
 
   return (
-    <div className="absolute top-24 left-6 z-1000 flex flex-col gap-2">
-      <div className="bg-background/80 backdrop-blur-md border border-border rounded-xl p-1.5 shadow-2xl flex flex-col gap-1 pointer-events-auto">
+    <div className="absolute top-20 md:top-24 left-4 md:left-6 z-1000 flex flex-col gap-2">
+      <div className="bg-background/80 backdrop-blur-md border border-border rounded-xl p-1 md:p-1.5 shadow-2xl flex flex-col gap-1 pointer-events-auto">
         {tools.map((tool) => (
           <Tooltip key={tool.id}>
             <TooltipTrigger>
@@ -38,14 +38,14 @@ export function MapToolbar() {
                 variant={drawingMode === tool.id ? 'default' : 'ghost'}
                 size="icon"
                 className={cn(
-                  "h-10 w-10 rounded-lg transition-all duration-200",
+                  "h-8 w-8 md:h-10 md:w-10 rounded-lg transition-all duration-200",
                   drawingMode === tool.id 
                     ? "bg-primary text-primary-foreground shadow-lg scale-105" 
                     : "hover:bg-accent text-muted-foreground hover:text-foreground"
                 )}
                 onClick={() => setDrawingMode(tool.id)}
               >
-                <tool.icon className="w-5 h-5" />
+                <tool.icon className="w-4 h-4 md:w-5 md:h-5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right" className="flex items-center gap-2">
@@ -59,16 +59,16 @@ export function MapToolbar() {
       </div>
 
       {drawingMode !== 'none' && (
-        <div className="bg-background/80 backdrop-blur-md border border-border rounded-xl p-1.5 shadow-2xl flex flex-col gap-1 animate-in slide-in-from-left-2 fade-in pointer-events-auto">
+        <div className="bg-background/80 backdrop-blur-md border border-border rounded-xl p-1 md:p-1.5 shadow-2xl flex flex-col gap-1 animate-in slide-in-from-left-2 fade-in pointer-events-auto">
           <Tooltip>
             <TooltipTrigger>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-10 w-10 rounded-lg text-destructive hover:bg-destructive/10"
+                className="h-8 w-8 md:h-10 md:w-10 rounded-lg text-destructive hover:bg-destructive/10"
                 onClick={() => setDrawingMode('none')}
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4 md:w-5 md:h-5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">Cancel Drawing</TooltipContent>
