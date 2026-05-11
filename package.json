@@ -26,7 +26,7 @@
     "@types/shapefile": "^0.6.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "framer-motion": "12.6.2",
+    "framer-motion": "12.38.0",
     "jszip": "^3.10.1",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.14.0",
