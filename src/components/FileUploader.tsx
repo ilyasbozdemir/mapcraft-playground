@@ -65,6 +65,18 @@ export function FileUploader({ className }: { className?: string }) {
           if (extension === 'geojson' || extension === 'json') {
             data = await parseGeoJSON(file);
             type = 'geojson';
+          } else if (extension === 'mapcraft') {
+            const text = await file.text();
+            const project = JSON.parse(text);
+            if (project.layers) {
+              project.layers.forEach((l: any) => addLayer(l));
+              if (project.groups) {
+                project.groups.forEach((g: any) => useMapStore.getState().addGroup(g));
+              }
+              if (project.baseLayer) useMapStore.getState().setBaseLayer(project.baseLayer);
+              toast.success(`Loaded Project: ${file.name}`);
+              continue;
+            }
           } else if (extension === 'kml') {
             data = await parseKML(file);
             type = 'kml';

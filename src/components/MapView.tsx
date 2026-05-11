@@ -14,6 +14,7 @@ import { Feature } from 'geojson';
 import { calculateBounds } from '@/lib/geoUtils';
 import { cn } from '@/lib/utils';
 import { DrawingLayer } from './DrawingLayer';
+import { toast } from 'sonner';
 import { MapLayer } from '@/types/geo';
 
 // Fix Leaflet marker icons
@@ -61,7 +62,7 @@ const BASE_LAYERS = {
 };
 
 export default function MapView() {
-  const { layers, baseLayer, customBaseUrl, drawingMode } = useMapStore();
+  const { layers, baseLayer, customBaseUrl, drawingMode, setSelectedFeature, updateLayer } = useMapStore();
 
   const getStyle = (layer: MapLayer) => ({
     color: layer.color,
@@ -71,34 +72,39 @@ export default function MapView() {
     fillOpacity: 0.35,
   });
 
-  const onEachFeature = (feature: Feature, leafletLayer: L.Layer) => {
-    if (feature.properties) {
-      const props = Object.entries(feature.properties)
-        .map(([key, value]) => `
-          <tr class="border-b border-border/50 last:border-0">
-            <td class="py-1.5 pr-4 text-muted-foreground font-medium text-[11px] uppercase tracking-wider">${key}</td>
-            <td class="py-1.5 text-foreground font-mono text-[11px] break-all">${typeof value === 'object' ? JSON.stringify(value) : value}</td>
-          </tr>
-        `)
-        .join('');
+  const handleMarkerDragEnd = (layerId: string, featureIndex: number, e: L.LeafletEvent) => {
+    const marker = e.target;
+    const position = marker.getLatLng();
+    
+    const layer = layers.find(l => l.id === layerId);
+    if (!layer) return;
 
-      leafletLayer.bindPopup(`
-        <div class="min-w-[240px] max-w-[320px]">
-          <div class="flex items-center gap-2 mb-2 pb-2 border-b border-border">
-            <div class="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
-            <span class="font-bold text-sm uppercase tracking-tighter">${feature.geometry.type}</span>
-          </div>
-          <div class="max-h-[200px] overflow-auto custom-scrollbar">
-            <table class="w-full text-left border-collapse">
-              <tbody>${props || '<tr><td class="py-2 text-muted-foreground italic">No attributes</td></tr>'}</tbody>
-            </table>
-          </div>
-        </div>
-      `, {
-        className: 'custom-leaflet-popup',
-        maxWidth: 320
-      });
+    const newData = { ...layer.data };
+    const feature = { ...newData.features[featureIndex] };
+    
+    if (feature.geometry.type === 'Point') {
+      feature.geometry = {
+        ...feature.geometry,
+        coordinates: [position.lng, position.lat]
+      };
+      
+      newData.features[featureIndex] = feature;
+      updateLayer(layerId, { data: newData });
+      toast.success('Point moved');
     }
+  };
+
+  const onEachFeature = (feature: Feature, leafletLayer: L.Layer, layerId: string, featureIndex: number) => {
+    leafletLayer.on({
+      click: (e) => {
+        if (drawingMode !== 'none') return;
+        L.DomEvent.stopPropagation(e);
+        setSelectedFeature({ 
+          layerId, 
+          featureId: feature.id !== undefined ? feature.id : featureIndex.toString() 
+        });
+      }
+    });
   };
 
   const getTileUrl = () => {
@@ -111,25 +117,34 @@ export default function MapView() {
       <MapContainer 
         center={[39, 35]} 
         zoom={6} 
+        maxZoom={22}
         className="w-full h-full z-0"
         zoomControl={false}
       >
-        <TileLayer url={getTileUrl()} />
+        <TileLayer 
+          url={getTileUrl()} 
+          maxZoom={22} 
+          maxNativeZoom={baseLayer === 'satellite' ? 19 : 18}
+        />
         <AutoFitBounds />
         <DrawingLayer />
         
         {layers.filter(l => l.visible).map((layer) => (
           <GeoJSON 
-            key={`${layer.id}-${layer.color}`}
+            key={`${layer.id}-${layer.color}-${JSON.stringify(layer.data.features.length)}`}
             data={layer.data}
             style={() => getStyle(layer)}
             pointToLayer={(feature, latlng) => {
+              const featureIndex = layer.data.features.findIndex(f => f === feature);
               return L.marker(latlng, {
-                title: feature.properties?.name || 'New Point',
-                alt: 'Marker'
-              });
+                draggable: true,
+                title: feature.properties?.name || 'Point',
+              }).on('dragend', (e) => handleMarkerDragEnd(layer.id, featureIndex, e));
             }}
-            onEachFeature={onEachFeature}
+            onEachFeature={(feature, leafletLayer) => {
+              const featureIndex = layer.data.features.findIndex(f => f === feature);
+              onEachFeature(feature, leafletLayer, layer.id, featureIndex);
+            }}
           />
         ))}
       </MapContainer>

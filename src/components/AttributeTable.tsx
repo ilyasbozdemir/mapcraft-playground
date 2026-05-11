@@ -33,10 +33,10 @@ export function AttributeTable() {
 
   return (
     <Drawer>
-      <DrawerTrigger>
+      <DrawerTrigger asChild>
         <Button 
           variant="secondary" 
-          className="fixed bottom-4 md:bottom-6 left-1/2 -translate-x-1/2 z-500 shadow-2xl gap-2 rounded-full px-4 md:px-6 h-10 md:h-11 border border-primary/20 hover:border-primary/50 transition-all group"
+          className="fixed bottom-4 md:bottom-6 left-1/2 -translate-x-1/2 z-1000 shadow-2xl gap-2 rounded-full px-4 md:px-6 h-10 md:h-11 border border-primary/20 hover:border-primary/50 transition-all group pointer-events-auto"
         >
           <Database className="w-4 h-4 text-primary group-hover:scale-110 transition-transform" />
           <span className="hidden sm:inline font-semibold text-xs uppercase tracking-widest">Attribute Table</span>

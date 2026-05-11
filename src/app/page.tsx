@@ -45,55 +45,28 @@ import {
 } from "@/components/ui/sheet";
 import { Menu } from 'lucide-react';
 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
+import { FeatureDetailsWindow } from '@/components/FeatureDetailsWindow';
+import { Layers } from 'lucide-react';
+
 export default function Home() {
   const { layers, baseLayer, setBaseLayer, addLayer, customBaseUrl, setCustomBaseUrl } = useMapStore();
 
-  const loadSampleData = async () => {
-    try {
-      const sampleData: FeatureCollection = {
-        type: 'FeatureCollection',
-        features: [
-          {
-            type: 'Feature',
-            properties: { name: 'Istanbul', population: '15.8M', area: '5,343 km²' },
-            geometry: { type: 'Point', coordinates: [28.9784, 41.0082] }
-          },
-          {
-            type: 'Feature',
-            properties: { name: 'Ankara', population: '5.7M', area: '25,632 km²' },
-            geometry: { type: 'Point', coordinates: [32.8597, 39.9334] }
-          },
-          {
-            type: 'Feature',
-            properties: { name: 'Marmara Sea Area', region: 'Marmara' },
-            geometry: {
-              type: 'Polygon',
-              coordinates: [[[27.5, 40.5], [29.5, 40.5], [29.5, 41.2], [27.5, 41.2], [27.5, 40.5]]]
-            }
-          }
-        ]
-      };
-
-      const layer: MapLayer = {
-        id: crypto.randomUUID(),
-        name: 'Sample Turkish Cities',
-        type: 'geojson' as const,
-        data: sampleData,
-        visible: true,
-        color: '#3b82f6',
-        geometryType: 'Mixed' as const,
-        featureCount: 3,
-        size: JSON.stringify(sampleData).length,
-        createdAt: Date.now(),
-      };
-
-      addLayer(layer);
-      toast.success('Sample data loaded successfully');
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to load sample data');
-    }
-  };
+  const BASE_LAYER_OPTIONS = [
+    { id: 'osm', label: 'Standard', icon: Globe },
+    { id: 'satellite', label: 'Satellite', icon: Sun },
+    { id: 'dark', label: 'Dark Mode', icon: Moon },
+    { id: 'topo', label: 'Topographic', icon: MapIcon },
+    { id: 'terrain', label: 'Terrain', icon: Navigation2 },
+    { id: 'custom', label: 'Custom Tiles', icon: Plus },
+  ];
 
   return (
     <main className="flex h-screen w-screen overflow-hidden bg-background">
@@ -125,46 +98,47 @@ export default function Home() {
               <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-primary flex items-center justify-center">
                 <MapIcon className="w-4 h-4 md:w-5 md:h-5 text-primary-foreground" />
               </div>
-              <div className="hidden sm:block">
+              <div>
                 <h1 className="text-xs md:text-sm font-bold tracking-tight">MapCraft</h1>
-                <p className="text-[9px] md:text-[10px] text-muted-foreground font-medium uppercase tracking-widest leading-none">v1.0.0 Alpha</p>
+                <p className="text-[9px] md:text-[10px] text-muted-foreground font-medium uppercase tracking-widest leading-none">Pro Engine</p>
               </div>
             </div>
             
-            <div className="bg-background/80 backdrop-blur-md border border-border rounded-xl p-0.5 md:p-1 shadow-2xl flex items-center gap-0.5 md:gap-1 max-w-[120px] sm:max-w-none overflow-x-auto no-scrollbar">
-              {[
-                { id: 'osm', label: 'Std', fullLabel: 'Standard', icon: Globe },
-                { id: 'satellite', label: 'Sat', fullLabel: 'Satellite', icon: Sun },
-                { id: 'dark', label: 'Drk', fullLabel: 'Dark', icon: Moon },
-                { id: 'topo', label: 'Topo', fullLabel: 'Topo', icon: MapIcon },
-                { id: 'terrain', label: 'Terr', fullLabel: 'Terrain', icon: Navigation2 },
-                { id: 'custom', label: 'Cst', fullLabel: 'Custom', icon: Plus },
-              ].map((layer) => (
-                <Tooltip key={layer.id}>
-                  <TooltipTrigger>
-                    <div
-                      className={cn(
-                        "h-7 md:h-8 px-2 md:px-3 rounded-lg text-[10px] md:text-xs font-semibold flex items-center cursor-pointer transition-colors whitespace-nowrap",
-                        baseLayer === layer.id ? "bg-primary text-primary-foreground" : "hover:bg-accent"
-                      )}
-                      onClick={() => setBaseLayer(layer.id as BaseLayerType)}
-                    >
-                      <layer.icon className="w-3 md:w-3.5 h-3 md:h-3.5 mr-1 md:mr-2 shrink-0" />
-                      <span className="hidden lg:inline">{layer.fullLabel}</span>
-                      <span className="lg:hidden">{layer.label}</span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">Switch to {layer.fullLabel} layer</TooltipContent>
-                </Tooltip>
-              ))}
-            </div>
+            {/* Base Layer Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger render={
+                <Button variant="secondary" className="bg-background/80 backdrop-blur-md border border-border rounded-xl px-3 h-9 md:h-10 shadow-2xl flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-bold hidden sm:inline">
+                    {BASE_LAYER_OPTIONS.find(l => l.id === baseLayer)?.label}
+                  </span>
+                </Button>
+              } />
+              <DropdownMenuContent className="w-56 rounded-2xl p-2 bg-background/95 backdrop-blur-xl border-border shadow-2xl">
+                <DropdownMenuLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground px-2 py-1.5">Map Style</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {BASE_LAYER_OPTIONS.map((layer) => (
+                  <DropdownMenuItem
+                    key={layer.id}
+                    className={cn(
+                      "rounded-xl px-2 py-2 cursor-pointer mb-0.5",
+                      baseLayer === layer.id ? "bg-primary/10 text-primary font-bold" : "hover:bg-accent"
+                    )}
+                    onClick={() => setBaseLayer(layer.id as BaseLayerType)}
+                  >
+                    <layer.icon className={cn("w-4 h-4 mr-3", baseLayer === layer.id ? "text-primary" : "text-muted-foreground")} />
+                    <span className="text-sm">{layer.label}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             {baseLayer === 'custom' && (
               <div className="hidden sm:flex bg-background/80 backdrop-blur-md border border-border rounded-xl p-1 shadow-2xl items-center gap-1 pointer-events-auto animate-in slide-in-from-left-2 fade-in">
                 <input 
                   type="text" 
-                  placeholder="https://{s}.tile.osm.org/{z}/{x}/{y}.png"
-                  className="bg-transparent border-none focus:ring-0 text-[10px] px-2 w-32 md:w-48 font-mono"
+                  placeholder="Tiles URL: https://{s}.tile.osm.org/{z}/{x}/{y}.png"
+                  className="bg-transparent border-none focus:ring-0 text-[10px] px-3 w-48 md:w-64 font-mono font-medium"
                   value={customBaseUrl}
                   onChange={(e) => setCustomBaseUrl(e.target.value)}
                 />
@@ -173,15 +147,11 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-1.5 md:gap-2 pointer-events-auto shrink-0">
-            <Button variant="secondary" size="sm" className="hidden sm:flex bg-background/80 backdrop-blur-md border border-border rounded-xl shadow-2xl text-[10px] md:text-xs" onClick={loadSampleData}>
-              Load Sample
-            </Button>
-            <Button variant="secondary" size="icon" className="bg-background/80 backdrop-blur-md border border-border rounded-xl shadow-2xl h-8 w-8 md:h-9 md:w-9">
-              <Settings2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
-            </Button>
-            <Button variant="secondary" size="icon" className="bg-background/80 backdrop-blur-md border border-border rounded-xl shadow-2xl h-8 w-8 md:h-9 md:w-9">
-              <Globe className="w-3.5 h-3.5 md:w-4 md:h-4" />
-            </Button>
+            {/* Removed load sample and other icons as requested */}
+            <div className="flex flex-col items-end">
+              <span className="text-[10px] font-black uppercase tracking-widest text-primary leading-none">Live</span>
+              <span className="text-[9px] font-medium text-muted-foreground uppercase tracking-tighter">Workspace</span>
+            </div>
           </div>
         </div>
 
@@ -189,6 +159,7 @@ export default function Home() {
           <MapView />
           <MapToolbar />
           <AttributeTable />
+          <FeatureDetailsWindow />
         </div>
 
         {layers.length === 0 && (
