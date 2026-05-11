@@ -62,4 +62,8 @@ export const useMapStore = create<MapState>((set) => ({
   setSelectedFeature: (selectedFeature) => set({ selectedFeature }),
   setLoading: (isLoading) => set({ isLoading }),
   setMeasurementResult: (measurementResult) => set({ measurementResult }),
+  
+  moveLayerToGroup: (layerId: string, groupId: string | undefined) => set((state) => ({
+    layers: state.layers.map((l) => l.id === layerId ? { ...l, groupId } : l)
+  })),
 }));

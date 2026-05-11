@@ -11,7 +11,8 @@ import {
   FolderPlus,
   Folder,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Plus
 } from 'lucide-react';
 import { useMapStore } from '@/hooks/useMapStore';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import { formatSize } from '@/lib/geoUtils';
 import { cn } from '@/lib/utils';
@@ -43,7 +45,8 @@ export function LayerPanel() {
     updateGroup,
     updateLayer,
     baseLayer,
-    customBaseUrl
+    customBaseUrl,
+    moveLayerToGroup
   } = useMapStore();
 
   const exportLayer = (layerId: string) => {
@@ -91,7 +94,7 @@ export function LayerPanel() {
     toast.success('Group created');
   };
 
-  const renderLayer = (layer: any) => (
+  const renderLayer = (layer: import('@/types/geo').MapLayer) => (
     <div 
       key={layer.id}
       className={cn(
@@ -105,6 +108,7 @@ export function LayerPanel() {
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex flex-col min-w-0 flex-1">
           <input
+            title="Edit layer name"
             className="font-bold text-xs truncate bg-transparent border-none focus:ring-1 focus:ring-primary rounded px-1 -ml-1 w-full outline-none"
             value={layer.name}
             onChange={(e) => updateLayer(layer.id, { name: e.target.value })}
@@ -149,6 +153,24 @@ export function LayerPanel() {
                 GeoJSON Export
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-[9px] uppercase tracking-widest font-black px-2 py-1.5 opacity-50">Move to Group</DropdownMenuLabel>
+              {groups.map(g => (
+                <DropdownMenuItem 
+                  key={g.id} 
+                  onClick={() => moveLayerToGroup(layer.id, g.id)}
+                  className={cn(layer.groupId === g.id && "bg-primary/10 text-primary font-bold")}
+                >
+                  <Folder className="w-3.5 h-3.5 mr-2" />
+                  {g.name}
+                </DropdownMenuItem>
+              ))}
+              {layer.groupId && (
+                <DropdownMenuItem onClick={() => moveLayerToGroup(layer.id, undefined)}>
+                  <Layers className="w-3.5 h-3.5 mr-2" />
+                  Remove from Group
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => removeLayer(layer.id)} className="text-destructive focus:bg-destructive/10">
                 <Trash2 className="w-3.5 h-3.5 mr-2" />
                 Remove Layer
@@ -165,6 +187,7 @@ export function LayerPanel() {
         />
         <input 
           type="color" 
+          title="Change layer color"
           value={layer.color} 
           onChange={(e) => updateLayerColor(layer.id, e.target.value)}
           className="w-4 h-4 p-0 border-none bg-transparent cursor-pointer"
@@ -208,6 +231,7 @@ export function LayerPanel() {
                 {group.collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 <Folder className="w-4 h-4 text-primary/70" />
                 <input
+                  title="Edit group name"
                   className="font-black text-[10px] uppercase tracking-[0.2em] bg-transparent border-none focus:ring-0 w-full"
                   value={group.name}
                   onChange={(e) => updateGroup(group.id, { name: e.target.value })}
@@ -243,6 +267,21 @@ export function LayerPanel() {
               <h3 className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground px-2">Uncategorized</h3>
             )}
             {layers.filter(l => !l.groupId).map(renderLayer)}
+            
+            {layers.length > 0 && (
+              <Button 
+                variant="outline" 
+                className="w-full border-dashed border-2 hover:border-primary/50 hover:bg-primary/5 gap-2 rounded-xl h-12 text-[10px] font-black uppercase tracking-widest mt-4"
+                onClick={() => {
+                  // This will trigger the file uploader via a custom event or just focus it
+                  const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+                  input?.click();
+                }}
+              >
+                <Plus className="w-4 h-4" />
+                Import More Data
+              </Button>
+            )}
           </div>
 
           {layers.length === 0 && groups.length === 0 && (

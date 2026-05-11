@@ -63,4 +63,5 @@ export interface MapState {
   setSelectedFeature: (feature: { layerId: string; featureId: string | number } | null) => void;
   setLoading: (loading: boolean) => void;
   setMeasurementResult: (result: { value: number; unit: string; type: 'distance' | 'area' } | null) => void;
+  moveLayerToGroup: (layerId: string, groupId: string | undefined) => void;
 }

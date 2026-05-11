@@ -5,16 +5,15 @@ import { motion } from 'framer-motion';
 import { X, GripHorizontal, MapPin, Hash, Maximize2, Copy, Trash2, Box, Activity } from 'lucide-react';
 import { Button } from './ui/button';
 import { useMapStore } from '@/hooks/useMapStore';
-import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export function FeatureDetailsWindow() {
-  const { selectedFeature, layers, setSelectedFeature, removeLayer, updateLayer } = useMapStore();
+  const { selectedFeature, layers, setSelectedFeature, updateLayer } = useMapStore();
   const constraintsRef = useRef(null);
 
   if (!selectedFeature) return null;
 
-  const layer = layers.find(l => l.id === selectedFeature.layerId);
+  const layer = layers.find((l): l is import('@/types/geo').MapLayer => l.id === selectedFeature.layerId);
   if (!layer) return null;
 
   const feature = layer.data.features.find((f, i) => 
@@ -31,7 +30,6 @@ export function FeatureDetailsWindow() {
   };
 
   const handleRemoveFeature = () => {
-    // This is a bit complex as we need to update the layer's GeoJSON data
     const newData = {
       ...layer.data,
       features: layer.data.features.filter((f, i) => 
@@ -112,38 +110,55 @@ export function FeatureDetailsWindow() {
             </div>
           </div>
 
-          {/* Properties Table */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Properties</h4>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCopyProperties}>
-                <Copy className="w-3 h-3" />
-              </Button>
+          {/* Properties Section */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between px-1">
+              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/70">Attributes</h4>
+              <div className="flex gap-1">
+                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-md hover:bg-primary/10" onClick={handleCopyProperties}>
+                  <Copy className="w-3 h-3" />
+                </Button>
+              </div>
             </div>
             
-            <div className="rounded-xl border border-border overflow-hidden">
-              <table className="w-full text-left border-collapse">
-                <tbody>
-                  {Object.entries(properties).length > 0 ? (
-                    Object.entries(properties).map(([key, value]) => (
-                      <tr key={key} className="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors">
-                        <td className="py-2 px-3 text-muted-foreground font-bold text-[10px] uppercase tracking-wider w-1/3 border-r border-border/50">
-                          {key}
-                        </td>
-                        <td className="py-2 px-3 text-foreground font-mono text-[11px] break-all">
-                          {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={2} className="py-8 text-center text-muted-foreground italic text-xs">
-                        No properties found
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+            <div className="space-y-1">
+              {Object.entries(properties).length > 0 ? (
+                Object.entries(properties).map(([key, value]) => (
+                  <div 
+                    key={key} 
+                    className="group/row flex flex-col gap-1 p-2.5 rounded-xl bg-accent/20 border border-transparent hover:border-primary/20 hover:bg-accent/40 transition-all"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground group-hover/row:text-primary/70 transition-colors">
+                        {key}
+                      </span>
+                    </div>
+                    <input 
+                      title={`Edit value for ${key}`}
+                      className="bg-transparent border-none p-0 text-xs font-semibold focus:ring-0 w-full text-foreground truncate selection:bg-primary/30"
+                      value={typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                      onChange={(e) => {
+                        const newValue = e.target.value;
+                        const newProps = { ...properties, [key]: newValue };
+                        const newData = {
+                          ...layer.data,
+                          features: layer.data.features.map((f, i) => 
+                            (f.id !== undefined ? f.id === selectedFeature.featureId : i.toString() === selectedFeature.featureId.toString())
+                              ? { ...f, properties: newProps }
+                              : f
+                          )
+                        };
+                        updateLayer(layer.id, { data: newData });
+                      }}
+                    />
+                  </div>
+                ))
+              ) : (
+                <div className="py-12 text-center flex flex-col items-center gap-2 bg-accent/10 rounded-2xl border border-dashed border-border">
+                  <Activity className="w-8 h-8 text-muted-foreground/20" />
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">No Attributes</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -152,7 +167,7 @@ export function FeatureDetailsWindow() {
             <div className="space-y-2">
                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Coordinates</h4>
                <div className="p-3 rounded-xl bg-primary/5 border border-primary/10 font-mono text-xs flex items-center justify-between">
-                  <span>{(feature.geometry as any).coordinates[1].toFixed(6)}, {(feature.geometry as any).coordinates[0].toFixed(6)}</span>
+                  <span>{(feature.geometry as import('geojson').Point).coordinates[1].toFixed(6)}, {(feature.geometry as import('geojson').Point).coordinates[0].toFixed(6)}</span>
                   <MapPin className="w-3 h-3 text-primary" />
                </div>
             </div>

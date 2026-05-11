@@ -5,25 +5,19 @@ import dynamic from 'next/dynamic';
 import { 
   Plus, 
   Map as MapIcon, 
-  Settings2, 
   Globe,
   Moon,
   Sun,
-  Navigation2
+  Navigation2,
+  Menu,
+  Layers
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LayerPanel } from '@/components/LayerPanel';
 import { FileUploader } from '@/components/FileUploader';
 import { AttributeTable } from '@/components/AttributeTable';
 import { useMapStore } from '@/hooks/useMapStore';
-import { MapLayer, BaseLayerType } from '@/types/geo';
-import { FeatureCollection } from 'geojson';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { toast } from 'sonner';
+import { BaseLayerType } from '@/types/geo';
 import { cn } from '@/lib/utils';
 import { MapToolbar } from '@/components/MapToolbar';
 
@@ -43,7 +37,6 @@ import {
   SheetContent,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Menu } from 'lucide-react';
 
 import {
   DropdownMenu,
@@ -54,10 +47,9 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { FeatureDetailsWindow } from '@/components/FeatureDetailsWindow';
-import { Layers } from 'lucide-react';
 
 export default function Home() {
-  const { layers, baseLayer, setBaseLayer, addLayer, customBaseUrl, setCustomBaseUrl } = useMapStore();
+  const { layers, baseLayer, setBaseLayer, customBaseUrl, setCustomBaseUrl } = useMapStore();
 
   const BASE_LAYER_OPTIONS = [
     { id: 'osm', label: 'Standard', icon: Globe },
@@ -94,13 +86,18 @@ export default function Home() {
               </Sheet>
             </div>
 
-            <div className="bg-background/80 backdrop-blur-md border border-border rounded-xl px-3 md:px-4 py-1.5 md:py-2 shadow-2xl flex items-center gap-2 md:gap-3">
-              <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-primary flex items-center justify-center">
-                <MapIcon className="w-4 h-4 md:w-5 md:h-5 text-primary-foreground" />
+            <div className="flex items-center gap-3 bg-background/80 backdrop-blur-md border border-border/50 rounded-2xl px-4 py-2 shadow-2xl ring-1 ring-white/10">
+              <div className="w-10 h-10 rounded-xl bg-linear-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg transform -rotate-3 hover:rotate-0 transition-transform duration-300">
+                <MapIcon className="w-6 h-6 text-primary-foreground" />
               </div>
-              <div>
-                <h1 className="text-xs md:text-sm font-bold tracking-tight">MapCraft</h1>
-                <p className="text-[9px] md:text-[10px] text-muted-foreground font-medium uppercase tracking-widest leading-none">Pro Engine</p>
+              <div className="flex flex-col">
+                <h1 className="text-sm font-black tracking-tighter leading-none bg-linear-to-br from-foreground to-foreground/70 bg-clip-text text-transparent italic">
+                  MAPCRAFT <span className="text-primary font-mono not-italic">LAB</span>
+                </h1>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                  <p className="text-[9px] text-muted-foreground font-black uppercase tracking-[0.2em] leading-none">Pro Engine v1.2</p>
+                </div>
               </div>
             </div>
             
@@ -147,7 +144,6 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-1.5 md:gap-2 pointer-events-auto shrink-0">
-            {/* Removed load sample and other icons as requested */}
             <div className="flex flex-col items-end">
               <span className="text-[10px] font-black uppercase tracking-widest text-primary leading-none">Live</span>
               <span className="text-[9px] font-medium text-muted-foreground uppercase tracking-tighter">Workspace</span>
