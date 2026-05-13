@@ -17,13 +17,15 @@ import {
 import { Button } from './ui/button';
 import { useMapStore } from '@/hooks/useMapStore';
 import { toast } from 'sonner';
-import { calculateArea, calculateLength } from '@/lib/TurfUtils';
+import { calculateArea, calculateLength, createBuffer } from '@/lib/TurfUtils';
 import { cn } from '@/lib/utils';
+import { Loader2, Ruler } from 'lucide-react';
 
 export function FeatureDetailsWindow() {
-  const { selectedFeature, layers, setSelectedFeature, updateLayer } = useMapStore();
+  const { selectedFeature, layers, setSelectedFeature, updateLayer, addLayer } = useMapStore();
   const [newPropKey, setNewPropKey] = useState('');
   const [isAddingProp, setIsAddingProp] = useState(false);
+  const [isGeocoding, setIsGeocoding] = useState(false);
   const constraintsRef = useRef(null);
 
   const layer = useMemo(() => 
@@ -63,7 +65,7 @@ export function FeatureDetailsWindow() {
     toast.success('Properties copied to clipboard');
   };
 
-  const handleUpdateProperty = (key: string, value: any) => {
+  const handleUpdateProperty = (key: string, value: string | number | boolean | object) => {
     const newProps = { ...properties, [key]: value };
     const newData = {
       ...layer.data,
@@ -101,6 +103,55 @@ export function FeatureDetailsWindow() {
     };
     updateLayer(layer.id, { data: newData });
     toast.success('Attribute removed');
+  };
+
+  const handleCreateBuffer = () => {
+    if (!feature || feature.geometry.type !== 'Point') return;
+    
+    try {
+      const buffer = createBuffer(feature as GeoJSON.Feature<GeoJSON.Point>, 0.1, 'kilometers'); // 100m buffer
+      if (!buffer) return;
+
+      const newLayer: import('@/types/geo').MapLayer = {
+        id: crypto.randomUUID(),
+        name: `Buffer (100m) - ${layer.name}`,
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [buffer] },
+        visible: true,
+        color: layer.color,
+        geometryType: 'Polygon',
+        featureCount: 1,
+        size: JSON.stringify(buffer).length,
+        createdAt: Date.now(),
+      };
+      
+      addLayer(newLayer);
+      toast.success('100m Buffer created as a new layer');
+    } catch {
+      toast.error('Could not create buffer');
+    }
+  };
+
+  const handleReverseGeocode = async () => {
+    if (!feature || feature.geometry.type !== 'Point') return;
+    const coords = (feature.geometry as GeoJSON.Point).coordinates;
+    
+    setIsGeocoding(true);
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords[1]}&lon=${coords[0]}&zoom=18&addressdetails=1`);
+      const data = await response.json();
+      
+      if (data.display_name) {
+        handleUpdateProperty('address', data.display_name);
+        toast.success('Address retrieved');
+      } else {
+        toast.error('Address not found');
+      }
+    } catch {
+      toast.error('Failed to fetch address');
+    } finally {
+      setIsGeocoding(false);
+    }
   };
 
   const handleRemoveFeature = () => {
@@ -261,14 +312,37 @@ export function FeatureDetailsWindow() {
             </div>
           </div>
 
-          {/* Geometry Info */}
+          {/* Geometry Info & Point Actions */}
           {feature.geometry.type === 'Point' && (
-            <div className="space-y-2">
+            <div className="space-y-3">
                <div className="flex items-center gap-2 px-1">
                  <MapPin className="w-3 h-3 text-primary" />
-                 <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/70">Location</h4>
+                 <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/70">Point Intelligence</h4>
                </div>
-               <div className="p-3 rounded-xl bg-primary/5 border border-primary/10 font-mono text-xs flex items-center justify-between">
+               
+               <div className="grid grid-cols-2 gap-2">
+                 <Button 
+                   variant="secondary" 
+                   size="sm" 
+                   className="h-10 rounded-xl text-[10px] font-bold uppercase tracking-tight"
+                   onClick={handleCreateBuffer}
+                 >
+                   <Ruler className="w-3 h-3 mr-2" />
+                   100m Buffer
+                 </Button>
+                 <Button 
+                   variant="secondary" 
+                   size="sm" 
+                   className="h-10 rounded-xl text-[10px] font-bold uppercase tracking-tight"
+                   onClick={handleReverseGeocode}
+                   disabled={isGeocoding}
+                 >
+                   {isGeocoding ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <MapPin className="w-3 h-3 mr-2" />}
+                   Get Address
+                 </Button>
+               </div>
+
+               <div className="p-3 rounded-xl bg-primary/5 border border-primary/10 font-mono text-[10px] flex items-center justify-between">
                   <span>{(feature.geometry as import('geojson').Point).coordinates[1].toFixed(6)}, {(feature.geometry as import('geojson').Point).coordinates[0].toFixed(6)}</span>
                   <button 
                     onClick={() => {

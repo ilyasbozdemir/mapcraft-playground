@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 export function FileUploader({ className, compact = false }: { className?: string, compact?: boolean }) {
   const [isParsing, setIsParsing] = useState(false);
   const addLayer = useMapStore((state) => state.addLayer);
+  const updateLayer = useMapStore((state) => state.updateLayer);
   const setLoading = useMapStore((state) => state.setLoading);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
@@ -62,6 +63,53 @@ export function FileUploader({ className, compact = false }: { className?: strin
         let type: MapLayer['type'] = 'geojson';
 
         try {
+          if ((extension === 'geojson' || extension === 'json') && file.size > 20 * 1024 * 1024) {
+            // Large file path
+            const layerId = crypto.randomUUID();
+            let isFirstBatch = true;
+            let totalFeatures = 0;
+
+            await import('@/lib/parsers/LargeGeoJSONLoader').then(m => 
+              m.loadLargeGeoJSON(file, (batch) => {
+                totalFeatures += batch.length;
+                if (isFirstBatch) {
+                  const initialData: import('geojson').FeatureCollection = { type: 'FeatureCollection', features: batch };
+                  const layer: MapLayer = {
+                    id: layerId,
+                    name: `${file.name} (Loading...)`,
+                    type: 'geojson',
+                    data: initialData,
+                    visible: true,
+                    color: getRandomColor(),
+                    geometryType: getGeometryType(initialData) as import('@/types/geo').GeometryType,
+                    featureCount: batch.length,
+                    size: file.size,
+                    createdAt: Date.now(),
+                  };
+                  addLayer(layer);
+                  isFirstBatch = false;
+                } else {
+                  const currentLayer = useMapStore.getState().layers.find(l => l.id === layerId);
+                  if (currentLayer) {
+                    const newData: import('geojson').FeatureCollection = {
+                      ...currentLayer.data,
+                      features: [...currentLayer.data.features, ...batch]
+                    };
+                    updateLayer(layerId, { 
+                      data: newData, 
+                      featureCount: totalFeatures,
+                      name: `${file.name} (${totalFeatures.toLocaleString()} obj)`
+                    });
+                  }
+                }
+                toast.info(`Importing ${file.name}: ${totalFeatures.toLocaleString()} features...`, { id: layerId });
+              })
+            );
+            
+            toast.success(`Loaded Large File: ${file.name} (${totalFeatures.toLocaleString()} features)`, { id: layerId });
+            continue;
+          }
+
           if (extension === 'geojson' || extension === 'json') {
             data = await parseGeoJSON(file);
             type = 'geojson';
@@ -100,7 +148,7 @@ export function FileUploader({ className, compact = false }: { className?: strin
             data,
             visible: true,
             color: getRandomColor(),
-            geometryType: getGeometryType(data) as any,
+            geometryType: getGeometryType(data) as import('@/types/geo').GeometryType,
             featureCount: data.features.length,
             size: file.size,
             createdAt: Date.now(),
@@ -112,13 +160,13 @@ export function FileUploader({ className, compact = false }: { className?: strin
           toast.error(`Error parsing ${file.name}: ${err instanceof Error ? err.message : 'Unknown error'}`);
         }
       }
-    } catch (err) {
+    } catch {
       toast.error('Failed to process files');
     } finally {
       setIsParsing(false);
       setLoading(false);
     }
-  }, [addLayer, setLoading]);
+  }, [addLayer, updateLayer, setLoading]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
     onDrop,

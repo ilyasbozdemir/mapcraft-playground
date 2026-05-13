@@ -182,12 +182,9 @@ export function DrawingLayer() {
 
   const map = useMapEvents({
     click(e) {
-      if (drawingMode === 'none') return;
+      if (drawingMode === 'none' || drawingMode === 'edit') return;
       
-      if (drawingMode === 'select-points') {
-        // Point selection logic is handled via CircleMarkers in the render
-        return;
-      }
+      if (drawingMode === 'select-points') return;
 
       const snapped = getSnappedPoint(e.latlng, map);
 
@@ -196,37 +193,40 @@ export function DrawingLayer() {
         return;
       }
 
-      setPoints(prev => {
-        const newPoints = [...prev, e.latlng];
-        
-        if (drawingMode === 'measure-distance' && newPoints.length >= 2) {
-          const dist = calculateDistance(
-            [newPoints[newPoints.length-2].lng, newPoints[newPoints.length-2].lat],
-            [newPoints[newPoints.length-1].lng, newPoints[newPoints.length-1].lat]
-          );
-          setMeasurementResult({ 
-            value: (measurementResult?.value || 0) + dist, 
-            unit: 'km', 
-            type: 'distance' 
-          });
-        }
-        
-        return newPoints;
-      });
+      setPoints(prev => [...prev, e.latlng]);
     },
     mousemove(e) {
-      if (drawingMode !== 'none' && points.length > 0) {
+      if (drawingMode !== 'none' && drawingMode !== 'edit' && points.length > 0) {
         const snapped = getSnappedPoint(e.latlng, map);
         setMousePos(snapped || e.latlng);
 
-        if (drawingMode === 'measure-area' && points.length >= 2) {
-          const areaPoints = [...points, e.latlng, points[0]].map(p => [p.lng, p.lat]);
+        // Update live measurement
+        if (drawingMode === 'polygon' && points.length >= 2) {
+          const areaPoints = [...points, snapped || e.latlng, points[0]].map(p => [p.lng, p.lat]);
           try {
             const area = calculateArea(turf.polygon([areaPoints]));
             setMeasurementResult({ value: area, unit: 'm²', type: 'area' });
-          } catch {
-            // Silently fail if area calculation is not possible during drawing
-          }
+          } catch { }
+        } else if (drawingMode === 'line' && points.length >= 1) {
+          const totalDist = points.reduce((acc, p, i) => {
+            if (i === 0) return 0;
+            return acc + calculateDistance([points[i-1].lng, points[i-1].lat], [p.lng, p.lat]);
+          }, 0);
+          const lastDist = calculateDistance([points[points.length-1].lng, points[points.length-1].lat], [e.latlng.lng, e.latlng.lat]);
+          setMeasurementResult({ value: totalDist + lastDist, unit: 'km', type: 'distance' });
+        }
+      }
+    },
+    dblclick() {
+      if (drawingMode !== 'none' && drawingMode !== 'edit' && canFinish) {
+        finishDrawing();
+      }
+    },
+    contextmenu(e) {
+      if (drawingMode !== 'none' && drawingMode !== 'edit') {
+        L.DomEvent.stopPropagation(e.originalEvent);
+        if (canFinish) {
+          finishDrawing();
         }
       }
     },
@@ -240,7 +240,7 @@ export function DrawingLayer() {
     }
   });
 
-  if (drawingMode === 'none') return null;
+  if (drawingMode === 'none' || drawingMode === 'edit') return null;
 
   return (
     <>
@@ -278,19 +278,23 @@ export function DrawingLayer() {
       )}
 
       {/* Current Points */}
-      {points.map((p, i) => (
-        <CircleMarker 
-          key={i} 
-          center={p} 
-          radius={i === 0 && points.length >= 2 ? 8 : 5} 
-          pathOptions={{ 
-            color: 'white', 
-            fillColor: i === 0 && points.length >= 3 && drawingMode === 'polygon' ? '#22c55e' : '#3b82f6', 
-            fillOpacity: 1, 
-            weight: 2 
-          }} 
-        />
-      ))}
+      {points.map((p, i) => {
+        const isFirst = i === 0;
+        const isSnapped = mousePos && p.lat === mousePos.lat && p.lng === mousePos.lng;
+        return (
+          <CircleMarker 
+            key={i} 
+            center={p} 
+            radius={isFirst && points.length >= 2 ? (isSnapped ? 12 : 8) : 5} 
+            pathOptions={{ 
+              color: isFirst && isSnapped ? '#22c55e' : 'white', 
+              fillColor: isFirst && points.length >= 3 && drawingMode === 'polygon' ? '#22c55e' : '#3b82f6', 
+              fillOpacity: 1, 
+              weight: isFirst && isSnapped ? 4 : 2 
+            }} 
+          />
+        );
+      })}
 
       {/* Preview Line/Polygon */}
       {(drawingMode === 'line' || drawingMode === 'measure-distance') && points.length > 0 && (
@@ -313,25 +317,25 @@ export function DrawingLayer() {
           "px-4 py-2 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] backdrop-blur-xl border border-white/20 flex items-center gap-4 transition-all duration-300",
           drawingMode.startsWith('measure') ? "bg-primary/90 text-white" : "bg-background/90 text-foreground"
         )}>
-          {measurementResult ? (
-            <div className="flex flex-col items-center min-w-[120px]">
-              <span className="text-[10px] font-black uppercase tracking-widest opacity-70">{measurementResult.type}</span>
-              <span className="text-xl font-black tabular-nums">
-                {measurementResult.type === 'area' 
+          <div className="flex flex-col items-center min-w-[140px]">
+            <span className="text-[10px] font-black uppercase tracking-widest opacity-70">
+              {measurementResult?.type || (drawingMode === 'select-points' ? 'Selected' : 'Points')}
+            </span>
+            <span className="text-xl font-black tabular-nums">
+              {measurementResult ? (
+                measurementResult.type === 'area' 
                   ? (measurementResult.value > 1000000 ? (measurementResult.value / 1000000).toFixed(2) + ' km²' : measurementResult.value.toLocaleString() + ' m²')
-                  : measurementResult.value.toFixed(3) + ' ' + measurementResult.unit}
+                  : measurementResult.value.toFixed(3) + ' ' + (measurementResult.unit || 'km')
+              ) : (
+                drawingMode === 'select-points' ? selectedPointIndices.length : points.length
+              )}
+            </span>
+            {points.length > 0 && !measurementResult && (
+              <span className="text-[8px] font-bold uppercase tracking-widest opacity-50 mt-1 text-center">
+                {drawingMode === 'polygon' ? 'Click first point or right click to close' : 'Double click or right click to finish'}
               </span>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center min-w-[120px]">
-              <span className="text-[10px] font-black uppercase tracking-widest opacity-70">
-                {drawingMode === 'select-points' ? 'Selected' : 'Points'}
-              </span>
-              <span className="text-xl font-black tabular-nums">
-                {drawingMode === 'select-points' ? selectedPointIndices.length : points.length}
-              </span>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Actions */}
           {!drawingMode.startsWith('measure') && (

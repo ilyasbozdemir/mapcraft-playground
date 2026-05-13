@@ -14,7 +14,8 @@ import {
   Folder,
   ChevronDown,
   ChevronRight,
-  GripVertical
+  GripVertical,
+  BoxSelect
 } from 'lucide-react';
 import { useMapStore } from '@/hooks/useMapStore';
 import { Button } from '@/components/ui/button';
@@ -35,6 +36,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { FileUploader } from '@/components/FileUploader';
 import { StudioExport } from '@/components/StudioExport';
+import { pointsToPolygon } from '@/lib/TurfUtils';
 
 export function LayerPanel() {
   const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
@@ -52,6 +54,30 @@ export function LayerPanel() {
     updateLayer,
     moveLayerToGroup
   } = useMapStore();
+
+  const convertToPolygon = (layerId: string) => {
+    const layer = layers.find(l => l.id === layerId);
+    if (!layer || layer.geometryType !== 'Point') return;
+    
+    const coords = layer.data.features
+      .filter(f => f.geometry.type === 'Point')
+      .map(f => (f.geometry as import('geojson').Point).coordinates);
+
+    if (coords.length < 3) {
+      toast.error('Need at least 3 points');
+      return;
+    }
+
+    const polygon = pointsToPolygon(coords);
+    if (polygon) {
+      updateLayer(layerId, { 
+        data: { type: 'FeatureCollection', features: [polygon] }, 
+        geometryType: 'Polygon',
+        featureCount: 1 
+      });
+      toast.success('Converted points to polygon');
+    }
+  };
 
   const exportLayer = (layerId: string) => {
     const layer = layers.find(l => l.id === layerId);
@@ -144,6 +170,12 @@ export function LayerPanel() {
                 <Download className="w-3.5 h-3.5 mr-2" />
                 GeoJSON Export
               </DropdownMenuItem>
+              {layer.geometryType === 'Point' && layer.featureCount >= 3 && (
+                <DropdownMenuItem onClick={() => convertToPolygon(layer.id)}>
+                  <BoxSelect className="w-3.5 h-3.5 mr-2" />
+                  Convert to Polygon
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
                 <DropdownMenuLabel className="text-[9px] uppercase tracking-widest font-black px-2 py-1.5 opacity-50">Move to Group</DropdownMenuLabel>

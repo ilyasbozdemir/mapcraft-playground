@@ -54,6 +54,39 @@ function AutoFitBounds() {
   return null;
 }
 
+function FeatureFocus() {
+  const map = useMap();
+  const { selectedFeature, layers } = useMapStore();
+
+  useEffect(() => {
+    if (!selectedFeature) return;
+
+    const layer = layers.find(l => l.id === selectedFeature.layerId);
+    if (!layer) return;
+
+    const feature = layer.data.features.find((f, i) => 
+      (f.id !== undefined ? f.id === selectedFeature.featureId : i.toString() === selectedFeature.featureId.toString())
+    );
+
+    if (!feature) return;
+
+    if (feature.geometry.type === 'Point') {
+      const coords = (feature.geometry as import('geojson').Point).coordinates;
+      map.flyTo([coords[1], coords[0]], 18, { duration: 1.5 });
+    } else {
+      const bounds = calculateBounds({ type: 'FeatureCollection', features: [feature] });
+      if (bounds) {
+        map.fitBounds([
+          [bounds[0], bounds[1]],
+          [bounds[2], bounds[3]]
+        ], { padding: [100, 100], animate: true, duration: 1.5 });
+      }
+    }
+  }, [selectedFeature, layers, map]);
+
+  return null;
+}
+
 const BASE_LAYERS = {
   osm: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
   satellite: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
@@ -64,6 +97,8 @@ const BASE_LAYERS = {
 
 function VertexEditor({ layer }: { layer: MapLayer }) {
   const updateLayer = useMapStore(state => state.updateLayer);
+
+  if (!layer || !layer.color) return null;
 
   const handleDragEnd = (featureIndex: number, coordIndex: number, latlng: L.LatLng, ringIndex: number = 0) => {
     const newData = JSON.parse(JSON.stringify(layer.data));
@@ -201,9 +236,10 @@ export default function MapView() {
           maxNativeZoom={baseLayer === 'satellite' ? 19 : 18}
         />
         <AutoFitBounds />
+        <FeatureFocus />
         <DrawingLayer />
         
-        {drawingMode === 'edit' && selectedLayerId && (
+        {drawingMode === 'edit' && selectedLayerId && layers.find(l => l.id === selectedLayerId) && (
           <VertexEditor layer={layers.find(l => l.id === selectedLayerId)!} />
         )}
         
