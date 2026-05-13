@@ -56,7 +56,7 @@ export function DrawingLayer() {
       const polygonPoints = selectedPointIndices.map(item => {
         const layer = layers.find(l => l.id === item.layerId);
         const feature = layer?.data.features[item.index];
-        const coords = (feature?.geometry as any).coordinates;
+        const coords = (feature?.geometry as GeoJSON.Point).coordinates;
         return [coords[0], coords[1]];
       });
 
@@ -224,7 +224,9 @@ export function DrawingLayer() {
           try {
             const area = calculateArea(turf.polygon([areaPoints]));
             setMeasurementResult({ value: area, unit: 'm²', type: 'area' });
-          } catch (e) {}
+          } catch {
+            // Silently fail if area calculation is not possible during drawing
+          }
         }
       }
     },
@@ -246,7 +248,7 @@ export function DrawingLayer() {
       {drawingMode === 'select-points' && layers.map(layer => 
         layer.visible && layer.data.features.map((f, i) => {
           if (f.geometry.type !== 'Point') return null;
-          const coords = (f.geometry as any).coordinates;
+          const coords = (f.geometry as GeoJSON.Point).coordinates;
           const isSelected = selectedPointIndices.some(s => s.layerId === layer.id && s.index === i);
           
           return (
