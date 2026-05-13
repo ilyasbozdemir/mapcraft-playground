@@ -13,7 +13,7 @@ import { getRandomColor, getGeometryType } from '@/lib/geoUtils';
 import { MapLayer } from '@/types/geo';
 import { cn } from '@/lib/utils';
 
-export function FileUploader({ className }: { className?: string }) {
+export function FileUploader({ className, compact = false }: { className?: string, compact?: boolean }) {
   const [isParsing, setIsParsing] = useState(false);
   const addLayer = useMapStore((state) => state.addLayer);
   const setLoading = useMapStore((state) => state.setLoading);
@@ -135,19 +135,22 @@ export function FileUploader({ className }: { className?: string }) {
       )}
     >
       <input {...getInputProps()} />
-      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+      <div className={cn(
+        "rounded-full bg-primary/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300",
+        compact ? "w-10 h-10 mb-2" : "w-16 h-16 mb-4"
+      )}>
         {isParsing ? (
-          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+          <Loader2 className={cn("text-primary animate-spin", compact ? "w-5 h-5" : "w-8 h-8")} />
         ) : (
-          <Upload className="w-8 h-8 text-primary" />
+          <Upload className={cn("text-primary", compact ? "w-5 h-5" : "w-8 h-8")} />
         )}
       </div>
-      <h3 className="text-lg font-semibold mb-1">
+      <h3 className={cn("font-semibold mb-1", compact ? "text-sm" : "text-lg")}>
         {isDragActive ? "Drop files here" : "Import Geo Data"}
       </h3>
-      <p className="text-sm text-muted-foreground max-w-xs">
+      <p className={cn("text-muted-foreground max-w-xs", compact ? "text-[10px]" : "text-sm")}>
         Drag & drop .geojson, .kml, .kmz, .shp (zip), or .gpx files.
-        For shapefiles, drop .shp, .dbf, and .shx together.
+        {!compact && " For shapefiles, drop .shp, .dbf, and .shx together."}
       </p>
       
       {isParsing && (

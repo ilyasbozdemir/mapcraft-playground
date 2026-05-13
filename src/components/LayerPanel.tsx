@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from 'react';
+
 import { 
   Eye, 
   EyeOff, 
@@ -12,7 +14,8 @@ import {
   Folder,
   ChevronDown,
   ChevronRight,
-  Plus
+  Plus,
+  GripVertical
 } from 'lucide-react';
 import { useMapStore } from '@/hooks/useMapStore';
 import { Button } from '@/components/ui/button';
@@ -26,12 +29,15 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
   DropdownMenuLabel,
+  DropdownMenuGroup,
 } from '@/components/ui/dropdown-menu';
 import { formatSize } from '@/lib/geoUtils';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { FileUploader } from '@/components/FileUploader';
 
 export function LayerPanel() {
+  const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
   const { 
     layers, 
     groups,
@@ -97,8 +103,13 @@ export function LayerPanel() {
   const renderLayer = (layer: import('@/types/geo').MapLayer) => (
     <div 
       key={layer.id}
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData('layerId', layer.id);
+        e.dataTransfer.effectAllowed = 'move';
+      }}
       className={cn(
-        "group relative p-3 rounded-xl border transition-all duration-200 cursor-pointer",
+        "group relative p-3 rounded-xl border transition-all duration-200 cursor-grab active:cursor-grabbing",
         selectedLayerId === layer.id 
           ? "border-primary bg-primary/5 shadow-[0_4px_12px_rgba(var(--primary),0.1)]" 
           : "border-border/50 hover:border-primary/30 hover:bg-accent/30"
@@ -106,15 +117,18 @@ export function LayerPanel() {
       onClick={() => setSelectedLayerId(layer.id)}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
-        <div className="flex flex-col min-w-0 flex-1">
-          <input
-            title="Edit layer name"
-            className="font-bold text-xs truncate bg-transparent border-none focus:ring-1 focus:ring-primary rounded px-1 -ml-1 w-full outline-none"
-            value={layer.name}
-            onChange={(e) => updateLayer(layer.id, { name: e.target.value })}
-            onClick={(e) => e.stopPropagation()}
-          />
-          <div className="flex items-center gap-2 mt-1">
+        <div className="flex items-center flex-col min-w-0 flex-1">
+          <div className="flex w-full items-center gap-1">
+            <GripVertical className="w-3.5 h-3.5 text-muted-foreground/30 cursor-grab active:cursor-grabbing hover:text-primary transition-colors shrink-0" />
+            <input
+              title="Edit layer name"
+              className="font-bold text-xs truncate bg-transparent border-none focus:ring-1 focus:ring-primary rounded px-1 w-full outline-none"
+              value={layer.name}
+              onChange={(e) => updateLayer(layer.id, { name: e.target.value })}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          <div className="flex w-full items-center gap-2 mt-1 pl-5">
             <span className="text-[9px] font-black uppercase tracking-widest text-primary/70">
               {layer.type}
             </span>
@@ -153,23 +167,25 @@ export function LayerPanel() {
                 GeoJSON Export
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuLabel className="text-[9px] uppercase tracking-widest font-black px-2 py-1.5 opacity-50">Move to Group</DropdownMenuLabel>
-              {groups.map(g => (
-                <DropdownMenuItem 
-                  key={g.id} 
-                  onClick={() => moveLayerToGroup(layer.id, g.id)}
-                  className={cn(layer.groupId === g.id && "bg-primary/10 text-primary font-bold")}
-                >
-                  <Folder className="w-3.5 h-3.5 mr-2" />
-                  {g.name}
-                </DropdownMenuItem>
-              ))}
-              {layer.groupId && (
-                <DropdownMenuItem onClick={() => moveLayerToGroup(layer.id, undefined)}>
-                  <Layers className="w-3.5 h-3.5 mr-2" />
-                  Remove from Group
-                </DropdownMenuItem>
-              )}
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="text-[9px] uppercase tracking-widest font-black px-2 py-1.5 opacity-50">Move to Group</DropdownMenuLabel>
+                {groups.map(g => (
+                  <DropdownMenuItem 
+                    key={g.id} 
+                    onClick={() => moveLayerToGroup(layer.id, g.id)}
+                    className={cn(layer.groupId === g.id && "bg-primary/10 text-primary font-bold")}
+                  >
+                    <Folder className="w-3.5 h-3.5 mr-2" />
+                    {g.name}
+                  </DropdownMenuItem>
+                ))}
+                {layer.groupId && (
+                  <DropdownMenuItem onClick={() => moveLayerToGroup(layer.id, undefined)}>
+                    <Layers className="w-3.5 h-3.5 mr-2" />
+                    Remove from Group
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => removeLayer(layer.id)} className="text-destructive focus:bg-destructive/10">
                 <Trash2 className="w-3.5 h-3.5 mr-2" />
@@ -223,7 +239,26 @@ export function LayerPanel() {
         <div className="space-y-6 py-4">
           {/* Groups */}
           {groups.map(group => (
-            <div key={group.id} className="space-y-2">
+            <div 
+              key={group.id} 
+              className={cn("space-y-2 rounded-xl border-2 transition-all duration-200", dragOverGroupId === group.id ? "border-primary/50 bg-primary/5 p-2 -mx-2" : "border-transparent p-0")}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOverGroupId(group.id);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                setDragOverGroupId(null);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOverGroupId(null);
+                const layerId = e.dataTransfer.getData('layerId');
+                if (layerId) {
+                  moveLayerToGroup(layerId, group.id);
+                }
+              }}
+            >
               <div 
                 className="flex items-center gap-2 px-2 py-1 group/group cursor-pointer"
                 onClick={() => updateGroup(group.id, { collapsed: !group.collapsed })}
@@ -254,7 +289,9 @@ export function LayerPanel() {
                 <div className="pl-4 space-y-2 border-l border-border/50 ml-4">
                   {layers.filter(l => l.groupId === group.id).map(renderLayer)}
                   {layers.filter(l => l.groupId === group.id).length === 0 && (
-                    <p className="text-[10px] text-muted-foreground italic py-2 pl-2">Empty group</p>
+                    <div className="flex flex-col items-center justify-center py-3 px-2 border-2 border-dashed border-border/50 rounded-xl bg-accent/10 mt-2 mb-1">
+                      <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest text-center">Drop Layers Here</p>
+                    </div>
                   )}
                 </div>
               )}
@@ -262,34 +299,43 @@ export function LayerPanel() {
           ))}
 
           {/* Ungrouped Layers */}
-          <div className="space-y-3">
+          <div 
+            className={cn("space-y-3 rounded-xl border-2 transition-all duration-200", dragOverGroupId === 'uncategorized' ? "border-primary/50 bg-primary/5 p-2 -mx-2" : "border-transparent p-0")}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOverGroupId('uncategorized');
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              setDragOverGroupId(null);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOverGroupId(null);
+              const layerId = e.dataTransfer.getData('layerId');
+              if (layerId) {
+                moveLayerToGroup(layerId, undefined);
+              }
+            }}
+          >
             {groups.length > 0 && layers.some(l => !l.groupId) && (
               <h3 className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground px-2">Uncategorized</h3>
             )}
             {layers.filter(l => !l.groupId).map(renderLayer)}
             
             {layers.length > 0 && (
-              <Button 
-                variant="outline" 
-                className="w-full border-dashed border-2 hover:border-primary/50 hover:bg-primary/5 gap-2 rounded-xl h-12 text-[10px] font-black uppercase tracking-widest mt-4"
-                onClick={() => {
-                  // This will trigger the file uploader via a custom event or just focus it
-                  const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-                  input?.click();
-                }}
-              >
-                <Plus className="w-4 h-4" />
-                Import More Data
-              </Button>
+              <div className="mt-4">
+                <FileUploader compact className="bg-background/50 backdrop-blur-sm" />
+              </div>
             )}
           </div>
 
           {layers.length === 0 && groups.length === 0 && (
-            <div className="flex flex-col items-center justify-center p-12 text-center">
-              <div className="w-16 h-16 rounded-full bg-accent/30 flex items-center justify-center mb-4 border border-border/50">
-                <Layers className="w-8 h-8 text-muted-foreground/30" />
+            <div className="flex flex-col items-center justify-center p-6 text-center">
+              <div className="w-16 h-16 rounded-full bg-accent/30 flex items-center justify-center mb-6 border border-border/50 shadow-inner">
+                <Layers className="w-8 h-8 text-muted-foreground/50" />
               </div>
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Workspace Empty</p>
+              <FileUploader compact className="w-full bg-background/50 backdrop-blur-sm" />
             </div>
           )}
         </div>

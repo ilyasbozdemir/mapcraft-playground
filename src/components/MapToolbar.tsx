@@ -39,21 +39,23 @@ export function MapToolbar() {
       <div className="bg-background/80 backdrop-blur-md border border-border rounded-xl p-1 md:p-1.5 shadow-2xl flex flex-col gap-1 pointer-events-auto">
         {tools.map((tool) => (
           <Tooltip key={tool.id}>
-            <TooltipTrigger>
-              <Button
-                variant={drawingMode === tool.id ? 'default' : 'ghost'}
-                size="icon"
-                className={cn(
-                  "h-8 w-8 md:h-10 md:w-10 rounded-lg transition-all duration-200",
-                  drawingMode === tool.id 
-                    ? "bg-primary text-primary-foreground shadow-lg scale-105" 
-                    : "hover:bg-accent text-muted-foreground hover:text-foreground"
-                )}
-                onClick={() => setDrawingMode(tool.id)}
-              >
-                <tool.icon className="w-4 h-4 md:w-5 md:h-5" />
-              </Button>
-            </TooltipTrigger>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant={drawingMode === tool.id ? 'default' : 'ghost'}
+                  size="icon"
+                  className={cn(
+                    "h-8 w-8 md:h-10 md:w-10 rounded-lg transition-all duration-200",
+                    drawingMode === tool.id 
+                      ? "bg-primary text-primary-foreground shadow-lg scale-105" 
+                      : "hover:bg-accent text-muted-foreground hover:text-foreground"
+                  )}
+                  onClick={() => setDrawingMode(tool.id)}
+                >
+                  <tool.icon className="w-4 h-4 md:w-5 md:h-5" />
+                </Button>
+              }
+            />
             <TooltipContent side="right" className="flex items-center gap-2">
               <span className="font-medium">{tool.label}</span>
               <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
@@ -67,16 +69,18 @@ export function MapToolbar() {
       {drawingMode !== 'none' && (
         <div className="bg-background/80 backdrop-blur-md border border-border rounded-xl p-1 md:p-1.5 shadow-2xl flex flex-col gap-1 animate-in slide-in-from-left-2 fade-in pointer-events-auto">
           <Tooltip>
-            <TooltipTrigger>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 md:h-10 md:w-10 rounded-lg text-destructive hover:bg-destructive/10"
-                onClick={() => setDrawingMode('none')}
-              >
-                <X className="w-4 h-4 md:w-5 md:h-5" />
-              </Button>
-            </TooltipTrigger>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 md:h-10 md:w-10 rounded-lg text-destructive hover:bg-destructive/10"
+                  onClick={() => setDrawingMode('none')}
+                >
+                  <X className="w-4 h-4 md:w-5 md:h-5" />
+                </Button>
+              }
+            />
             <TooltipContent side="right">Cancel Drawing</TooltipContent>
           </Tooltip>
         </div>
