@@ -1,5 +1,5 @@
 import * as turf from '@turf/turf';
-import { Feature, FeatureCollection, Point, Polygon, LineString, MultiPolygon, MultiLineString } from 'geojson';
+import { Feature, Polygon, MultiPolygon } from 'geojson';
 
 /**
  * Calculates the distance between two points in kilometers or meters
@@ -18,23 +18,23 @@ export const calculateArea = (feature: Feature<Polygon | MultiPolygon>) => {
 };
 
 /**
- * Calculates the length of a line string
+ * Calculates the length of a line string or perimeter of a polygon
  */
-export const calculateLength = (feature: Feature<LineString | MultiLineString>, units: turf.Units = 'kilometers') => {
+export const calculateLength = (feature: Feature<import('geojson').Geometry>, units: turf.Units = 'kilometers') => {
   return turf.length(feature, { units });
 };
 
 /**
  * Creates a buffer around a feature
  */
-export const createBuffer = (feature: any, radius: number, units: turf.Units = 'kilometers') => {
+export const createBuffer = (feature: Feature<import('geojson').Geometry>, radius: number, units: turf.Units = 'kilometers') => {
   return turf.buffer(feature, radius, { units });
 };
 
 /**
  * Calculates the center of a feature
  */
-export const getCenter = (feature: any) => {
+export const getCenter = (feature: Feature<import('geojson').Geometry>) => {
   return turf.center(feature);
 };
 

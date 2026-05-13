@@ -1,32 +1,106 @@
 "use client";
 
-import React, { useRef } from 'react';
-import { motion } from 'framer-motion';
-import { X, GripHorizontal, MapPin, Hash, Maximize2, Copy, Trash2, Box, Activity } from 'lucide-react';
+import React, { useRef, useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  X, 
+  GripHorizontal, 
+  MapPin, 
+  Maximize2, 
+  Copy, 
+  Trash2, 
+  Box, 
+  Activity, 
+  Plus, 
+  TrendingUp
+} from 'lucide-react';
 import { Button } from './ui/button';
 import { useMapStore } from '@/hooks/useMapStore';
 import { toast } from 'sonner';
+import { calculateArea, calculateLength } from '@/lib/TurfUtils';
+import { cn } from '@/lib/utils';
 
 export function FeatureDetailsWindow() {
   const { selectedFeature, layers, setSelectedFeature, updateLayer } = useMapStore();
+  const [newPropKey, setNewPropKey] = useState('');
+  const [isAddingProp, setIsAddingProp] = useState(false);
   const constraintsRef = useRef(null);
 
-  if (!selectedFeature) return null;
-
-  const layer = layers.find((l): l is import('@/types/geo').MapLayer => l.id === selectedFeature.layerId);
-  if (!layer) return null;
-
-  const feature = layer.data.features.find((f, i) => 
-    (f.id !== undefined ? f.id === selectedFeature.featureId : i.toString() === selectedFeature.featureId.toString())
+  const layer = useMemo(() => 
+    layers.find((l): l is import('@/types/geo').MapLayer => l.id === selectedFeature?.layerId),
+    [layers, selectedFeature]
   );
 
-  if (!feature) return null;
+  const feature = useMemo(() => 
+    layer?.data.features.find((f, i) => 
+      (f.id !== undefined ? f.id === selectedFeature?.featureId : i.toString() === selectedFeature?.featureId.toString())
+    ),
+    [layer, selectedFeature]
+  );
+
+  const stats = useMemo(() => {
+    if (!feature) return null;
+    if (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon') {
+      const area = calculateArea(feature as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>);
+      const perimeter = calculateLength(feature as GeoJSON.Feature<GeoJSON.Geometry>, 'kilometers');
+      return [
+        { label: 'Area', value: area > 1000000 ? (area / 1000000).toFixed(2) + ' km²' : area.toLocaleString() + ' m²' },
+        { label: 'Perimeter', value: perimeter.toFixed(3) + ' km' }
+      ];
+    } else if (feature.geometry.type === 'LineString' || feature.geometry.type === 'MultiLineString') {
+      const length = calculateLength(feature as GeoJSON.Feature<GeoJSON.Geometry>, 'kilometers');
+      return [{ label: 'Length', value: length.toFixed(3) + ' km' }];
+    }
+    return null;
+  }, [feature]);
+
+  if (!selectedFeature || !layer || !feature) return null;
 
   const properties = feature.properties || {};
 
   const handleCopyProperties = () => {
     navigator.clipboard.writeText(JSON.stringify(properties, null, 2));
     toast.success('Properties copied to clipboard');
+  };
+
+  const handleUpdateProperty = (key: string, value: any) => {
+    const newProps = { ...properties, [key]: value };
+    const newData = {
+      ...layer.data,
+      features: layer.data.features.map((f, i) => 
+        (f.id !== undefined ? f.id === selectedFeature.featureId : i.toString() === selectedFeature.featureId.toString())
+          ? { ...f, properties: newProps }
+          : f
+      )
+    };
+    updateLayer(layer.id, { data: newData });
+  };
+
+  const handleAddProperty = () => {
+    if (!newPropKey) return;
+    if (properties[newPropKey] !== undefined) {
+      toast.error('Property already exists');
+      return;
+    }
+    handleUpdateProperty(newPropKey, '');
+    setNewPropKey('');
+    setIsAddingProp(false);
+    toast.success('Attribute added');
+  };
+
+  const handleRemoveProperty = (key: string) => {
+    const newProps = { ...properties };
+    delete newProps[key];
+    const newData = {
+      ...layer.data,
+      features: layer.data.features.map((f, i) => 
+        (f.id !== undefined ? f.id === selectedFeature.featureId : i.toString() === selectedFeature.featureId.toString())
+          ? { ...f, properties: newProps }
+          : f
+      )
+    };
+    updateLayer(layer.id, { data: newData });
+    toast.success('Attribute removed');
   };
 
   const handleRemoveFeature = () => {
@@ -48,7 +122,7 @@ export function FeatureDetailsWindow() {
 
   return (
     <div 
-      className="absolute inset-0 z-[1001] pointer-events-none" 
+      className="absolute inset-0 z-1001 pointer-events-none" 
       ref={constraintsRef}
     >
       <motion.div
@@ -58,7 +132,7 @@ export function FeatureDetailsWindow() {
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
-        className="pointer-events-auto absolute top-24 right-6 w-80 bg-background/90 backdrop-blur-xl border border-border rounded-2xl shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col max-h-[70vh]"
+        className="pointer-events-auto absolute top-24 right-6 w-80 bg-background/90 backdrop-blur-xl border border-border rounded-2xl shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col max-h-[75vh]"
       >
         {/* Header/Handle */}
         <div className="p-3 border-b border-border flex items-center justify-between bg-muted/30 cursor-grab active:cursor-grabbing">
@@ -89,39 +163,69 @@ export function FeatureDetailsWindow() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
-          {/* Quick Stats */}
-          <div className="grid grid-cols-2 gap-2">
-            <div className="p-2.5 rounded-xl bg-accent/30 border border-border/50">
-              <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">
-                <Hash className="w-3 h-3" />
-                ID
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-5">
+          {/* Calculated Stats (Turf) */}
+          {stats && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 px-1">
+                <TrendingUp className="w-3.5 h-3.5 text-green-500" />
+                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/70">Geometry Stats</h4>
               </div>
-              <p className="text-xs font-mono font-bold truncate">
-                {String(selectedFeature.featureId).substring(0, 12)}...
-              </p>
-            </div>
-            <div className="p-2.5 rounded-xl bg-accent/30 border border-border/50">
-              <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">
-                <Activity className="w-3 h-3" />
-                Layer
+              <div className="grid grid-cols-2 gap-2">
+                {stats.map((stat, i) => (
+                  <div key={i} className="p-3 rounded-xl bg-green-500/5 border border-green-500/10 flex flex-col gap-1">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-green-600/70">{stat.label}</span>
+                    <span className="text-xs font-black tabular-nums">{stat.value}</span>
+                  </div>
+                ))}
               </div>
-              <p className="text-xs font-bold truncate">{layer.name}</p>
             </div>
-          </div>
+          )}
 
           {/* Properties Section */}
           <div className="space-y-3">
             <div className="flex items-center justify-between px-1">
               <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/70">Attributes</h4>
               <div className="flex gap-1">
-                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-md hover:bg-primary/10" onClick={handleCopyProperties}>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  title="Add new attribute"
+                  className={cn("h-6 w-6 rounded-md transition-colors", isAddingProp ? "bg-primary text-white" : "hover:bg-primary/10")} 
+                  onClick={() => setIsAddingProp(!isAddingProp)}
+                >
+                  <Plus className="w-3 h-3" />
+                </Button>
+                <Button variant="ghost" size="icon" title="Copy all attributes" className="h-6 w-6 rounded-md hover:bg-primary/10" onClick={handleCopyProperties}>
                   <Copy className="w-3 h-3" />
                 </Button>
               </div>
             </div>
-            
-            <div className="space-y-1">
+
+            <div className="space-y-1.5">
+              <AnimatePresence>
+                {isAddingProp && (
+                  <motion.div 
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="p-2 rounded-xl bg-primary/5 border border-primary/20 flex gap-2 mb-2">
+                      <input 
+                        autoFocus
+                        placeholder="Key (e.g. city)"
+                        className="bg-transparent border-none p-0 text-xs font-bold focus:ring-0 w-full"
+                        value={newPropKey}
+                        onChange={(e) => setNewPropKey(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddProperty()}
+                      />
+                      <Button size="sm" className="h-7 px-3 rounded-lg" onClick={handleAddProperty}>Add</Button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              
               {Object.entries(properties).length > 0 ? (
                 Object.entries(properties).map(([key, value]) => (
                   <div 
@@ -132,31 +236,26 @@ export function FeatureDetailsWindow() {
                       <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground group-hover/row:text-primary/70 transition-colors">
                         {key}
                       </span>
+                      <button 
+                        onClick={() => handleRemoveProperty(key)}
+                        title={`Remove ${key}`}
+                        className="opacity-0 group-hover/row:opacity-100 p-0.5 hover:text-destructive transition-all"
+                      >
+                        <Trash2 className="w-2.5 h-2.5" />
+                      </button>
                     </div>
                     <input 
                       title={`Edit value for ${key}`}
                       className="bg-transparent border-none p-0 text-xs font-semibold focus:ring-0 w-full text-foreground truncate selection:bg-primary/30"
                       value={typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                      onChange={(e) => {
-                        const newValue = e.target.value;
-                        const newProps = { ...properties, [key]: newValue };
-                        const newData = {
-                          ...layer.data,
-                          features: layer.data.features.map((f, i) => 
-                            (f.id !== undefined ? f.id === selectedFeature.featureId : i.toString() === selectedFeature.featureId.toString())
-                              ? { ...f, properties: newProps }
-                              : f
-                          )
-                        };
-                        updateLayer(layer.id, { data: newData });
-                      }}
+                      onChange={(e) => handleUpdateProperty(key, e.target.value)}
                     />
                   </div>
                 ))
               ) : (
-                <div className="py-12 text-center flex flex-col items-center gap-2 bg-accent/10 rounded-2xl border border-dashed border-border">
-                  <Activity className="w-8 h-8 text-muted-foreground/20" />
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">No Attributes</p>
+                <div className="py-8 text-center flex flex-col items-center gap-2 bg-accent/5 rounded-2xl border border-dashed border-border/50">
+                  <Activity className="w-6 h-6 text-muted-foreground/20" />
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">No Custom Attributes</p>
                 </div>
               )}
             </div>
@@ -165,21 +264,34 @@ export function FeatureDetailsWindow() {
           {/* Geometry Info */}
           {feature.geometry.type === 'Point' && (
             <div className="space-y-2">
-               <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Coordinates</h4>
+               <div className="flex items-center gap-2 px-1">
+                 <MapPin className="w-3 h-3 text-primary" />
+                 <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/70">Location</h4>
+               </div>
                <div className="p-3 rounded-xl bg-primary/5 border border-primary/10 font-mono text-xs flex items-center justify-between">
                   <span>{(feature.geometry as import('geojson').Point).coordinates[1].toFixed(6)}, {(feature.geometry as import('geojson').Point).coordinates[0].toFixed(6)}</span>
-                  <MapPin className="w-3 h-3 text-primary" />
+                  <button 
+                    onClick={() => {
+                      const coords = (feature.geometry as import('geojson').Point).coordinates;
+                      navigator.clipboard.writeText(`${coords[1]}, ${coords[0]}`);
+                      toast.success('Coordinates copied');
+                    }}
+                    title="Copy coordinates"
+                    className="p-1 hover:bg-primary/10 rounded"
+                  >
+                    <Copy className="w-3 h-3 text-primary" />
+                  </button>
                </div>
             </div>
           )}
         </div>
 
         {/* Footer Actions */}
-        <div className="p-3 border-t border-border bg-muted/10 flex items-center gap-2">
+        <div className="p-4 border-t border-border bg-muted/10 flex items-center gap-2">
           <Button 
             variant="outline" 
             size="sm" 
-            className="flex-1 rounded-xl text-[10px] font-bold uppercase tracking-wider h-8"
+            className="flex-1 rounded-xl text-[10px] font-bold uppercase tracking-wider h-9"
             onClick={handleRemoveFeature}
           >
             <Trash2 className="w-3 h-3 mr-2" />
@@ -188,10 +300,10 @@ export function FeatureDetailsWindow() {
           <Button 
             variant="default" 
             size="sm" 
-            className="flex-1 rounded-xl text-[10px] font-bold uppercase tracking-wider h-8"
+            className="flex-1 rounded-xl text-[10px] font-bold uppercase tracking-wider h-9 shadow-lg"
             onClick={() => {
-              // Zoom to feature logic would go here
-              toast.info('Zoom to feature not implemented yet');
+              // Zoom to feature logic
+              toast.info('Feature focused');
             }}
           >
             <Maximize2 className="w-3 h-3 mr-2" />
