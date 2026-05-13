@@ -14,7 +14,6 @@ import {
   Folder,
   ChevronDown,
   ChevronRight,
-  Plus,
   GripVertical
 } from 'lucide-react';
 import { useMapStore } from '@/hooks/useMapStore';
@@ -35,6 +34,7 @@ import { formatSize } from '@/lib/geoUtils';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { FileUploader } from '@/components/FileUploader';
+import { StudioExport } from '@/components/StudioExport';
 
 export function LayerPanel() {
   const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
@@ -50,8 +50,6 @@ export function LayerPanel() {
     removeGroup,
     updateGroup,
     updateLayer,
-    baseLayer,
-    customBaseUrl,
     moveLayerToGroup
   } = useMapStore();
 
@@ -67,26 +65,6 @@ export function LayerPanel() {
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
     toast.success(`Exported ${layer.name} as GeoJSON`);
-  };
-
-  const exportProject = () => {
-    const projectData = {
-      version: "1.0",
-      timestamp: Date.now(),
-      layers,
-      groups,
-      baseLayer,
-      customBaseUrl
-    };
-
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projectData));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", `project-${new Date().toISOString().split('T')[0]}.mapcraft`);
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
-    toast.success(`Project exported as .mapcraft`);
   };
 
   const createGroup = () => {
@@ -362,15 +340,7 @@ export function LayerPanel() {
           >
             Copy Data
           </Button>
-          <Button 
-            variant="default" 
-            size="sm" 
-            className="text-[10px] h-9 font-bold uppercase tracking-widest rounded-xl shadow-lg"
-            onClick={exportProject}
-            disabled={layers.length === 0}
-          >
-            Export Pack
-          </Button>
+          <StudioExport />
         </div>
       </div>
     </div>

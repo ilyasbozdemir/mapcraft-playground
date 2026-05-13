@@ -5,7 +5,8 @@ import {
   MapContainer, 
   TileLayer, 
   GeoJSON, 
-  useMap
+  useMap,
+  Marker
 } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -61,8 +62,81 @@ const BASE_LAYERS = {
   terrain: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}"
 };
 
+function VertexEditor({ layer }: { layer: MapLayer }) {
+  const updateLayer = useMapStore(state => state.updateLayer);
+
+  const handleDragEnd = (featureIndex: number, coordIndex: number, latlng: L.LatLng, ringIndex: number = 0) => {
+    const newData = JSON.parse(JSON.stringify(layer.data));
+    const feature = newData.features[featureIndex];
+    
+    if (feature.geometry.type === 'LineString') {
+      feature.geometry.coordinates[coordIndex] = [latlng.lng, latlng.lat];
+    } else if (feature.geometry.type === 'Polygon') {
+      feature.geometry.coordinates[ringIndex][coordIndex] = [latlng.lng, latlng.lat];
+      
+      // Close polygon if first or last point is moved
+      if (coordIndex === 0) {
+        feature.geometry.coordinates[ringIndex][feature.geometry.coordinates[ringIndex].length - 1] = [latlng.lng, latlng.lat];
+      } else if (coordIndex === feature.geometry.coordinates[ringIndex].length - 1) {
+        feature.geometry.coordinates[ringIndex][0] = [latlng.lng, latlng.lat];
+      }
+    }
+
+    updateLayer(layer.id, { data: newData });
+    toast.success('Vertex updated');
+  };
+
+  const vertexIcon = L.divIcon({
+    className: 'vertex-marker',
+    html: `<div style="background-color: white; border: 2px solid ${layer.color}; width: 10px; height: 10px; border-radius: 50%; shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+    iconSize: [10, 10],
+    iconAnchor: [5, 5]
+  });
+
+  return (
+    <>
+      {layer.data.features.map((feature, fIndex) => {
+        if (feature.geometry.type === 'LineString') {
+          return feature.geometry.coordinates.map((coord: GeoJSON.Position, cIndex: number) => (
+            <Marker
+              key={`${layer.id}-${fIndex}-${cIndex}`}
+              position={[coord[1], coord[0]]}
+              draggable
+              icon={vertexIcon}
+              eventHandlers={{
+                dragend: (e) => handleDragEnd(fIndex, cIndex, e.target.getLatLng())
+              }}
+            />
+          ));
+        }
+        if (feature.geometry.type === 'Polygon') {
+          return feature.geometry.coordinates.map((ring: GeoJSON.Position[], rIndex: number) => 
+            ring.map((coord: GeoJSON.Position, cIndex: number) => {
+              // For polygons, skip the last point as it's a duplicate of the first
+              if (cIndex === ring.length - 1) return null;
+              
+              return (
+                <Marker
+                  key={`${layer.id}-${fIndex}-${rIndex}-${cIndex}`}
+                  position={[coord[1], coord[0]]}
+                  draggable
+                  icon={vertexIcon}
+                  eventHandlers={{
+                    dragend: (e) => handleDragEnd(fIndex, cIndex, e.target.getLatLng(), rIndex)
+                  }}
+                />
+              );
+            })
+          );
+        }
+        return null;
+      })}
+    </>
+  );
+}
+
 export default function MapView() {
-  const { layers, baseLayer, customBaseUrl, drawingMode, setSelectedFeature, updateLayer } = useMapStore();
+  const { layers, selectedLayerId, baseLayer, customBaseUrl, drawingMode, setSelectedFeature, updateLayer } = useMapStore();
 
   const getStyle = (layer: MapLayer) => ({
     color: layer.color,
@@ -128,6 +202,10 @@ export default function MapView() {
         />
         <AutoFitBounds />
         <DrawingLayer />
+        
+        {drawingMode === 'edit' && selectedLayerId && (
+          <VertexEditor layer={layers.find(l => l.id === selectedLayerId)!} />
+        )}
         
         {layers.filter(l => l.visible).map((layer) => (
           <GeoJSON 

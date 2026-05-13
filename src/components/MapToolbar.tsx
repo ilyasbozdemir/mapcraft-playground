@@ -9,7 +9,8 @@ import {
   Navigation2,
   Ruler,
   Maximize,
-  Group
+  Group,
+  Pencil
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useMapStore } from '@/hooks/useMapStore';
@@ -32,6 +33,7 @@ export function MapToolbar() {
     { id: 'measure-distance', icon: Ruler, label: 'Measure Distance', shortcut: 'M' },
     { id: 'measure-area', icon: Maximize, label: 'Measure Area', shortcut: 'S' },
     { id: 'select-points', icon: Group, label: 'Points to Polygon', shortcut: 'G' },
+    { id: 'edit', icon: Pencil, label: 'Edit Geometry', shortcut: 'E' },
   ];
 
   return (

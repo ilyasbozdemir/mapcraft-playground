@@ -12,7 +12,7 @@ export type GeometryType =
 
 export type BaseLayerType = 'osm' | 'satellite' | 'dark' | 'topo' | 'terrain' | 'custom';
 
-export type DrawingMode = 'none' | 'polygon' | 'point' | 'line' | 'measure-distance' | 'measure-area' | 'select-points';
+export type DrawingMode = 'none' | 'polygon' | 'point' | 'line' | 'measure-distance' | 'measure-area' | 'select-points' | 'edit';
 
 export interface LayerGroup {
   id: string;
