@@ -229,6 +229,7 @@ export default function MapView() {
         maxZoom={22}
         className="w-full h-full z-0"
         zoomControl={false}
+        preferCanvas={true}
       >
         <TileLayer 
           url={getTileUrl()} 

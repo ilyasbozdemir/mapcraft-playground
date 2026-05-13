@@ -1,3 +1,4 @@
+import * as turf from '@turf/turf';
 import { Feature, FeatureCollection } from 'geojson';
 
 /**
@@ -41,7 +42,13 @@ export async function* streamGeoJSONFeatures(file: File): AsyncGenerator<Feature
         if (bracketCount === 0 && startIdx !== -1) {
           const featureStr = buffer.slice(startIdx, i + 1);
           try {
-            const feature = JSON.parse(featureStr);
+            let feature = JSON.parse(featureStr) as Feature;
+            
+            // Auto-simplify large geometries to save memory and improve map performance
+            if (feature.geometry && (feature.geometry.type === 'Polygon' || feature.geometry.type === 'LineString' || feature.geometry.type === 'MultiPolygon')) {
+               feature = turf.simplify(feature, { tolerance: 0.00001, highQuality: false });
+            }
+            
             yield feature;
           } catch (e) {
             console.error('Failed to parse feature chunk', e);
