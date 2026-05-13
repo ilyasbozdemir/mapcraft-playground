@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { 
   useMapEvents, 
   Polyline, 
@@ -13,6 +13,8 @@ import { MapLayer, GeometryType } from '@/types/geo';
 import { toast } from 'sonner';
 import { FeatureCollection } from 'geojson';
 import { cn } from '@/lib/utils';
+import { Check, Trash2, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 import * as turf from '@turf/turf';
 import { calculateDistance, calculateArea, pointsToPolygon } from '@/lib/TurfUtils';
@@ -150,6 +152,15 @@ export function DrawingLayer() {
     clearDrawing();
     setDrawingMode('none');
   }, [points, drawingMode, addLayer, clearDrawing, setDrawingMode, setSelectedLayerId, selectedPointIndices, layers]);
+
+  const canFinish = useMemo(() => {
+    if (drawingMode === 'polygon' || drawingMode === 'select-points') {
+      return drawingMode === 'select-points' ? selectedPointIndices.length >= 3 : points.length >= 3;
+    }
+    if (drawingMode === 'line') return points.length >= 2;
+    if (drawingMode === 'point') return points.length >= 1;
+    return false;
+  }, [drawingMode, points.length, selectedPointIndices.length]);
 
   const SNAP_THRESHOLD = 20; // pixels
 
@@ -294,14 +305,14 @@ export function DrawingLayer() {
         />
       )}
 
-      {/* Floating Status / Helper */}
-      <div className="fixed bottom-32 left-1/2 -translate-x-1/2 z-2000 pointer-events-none">
+      {/* Floating Status / Helper / Actions */}
+      <div className="fixed bottom-32 left-1/2 -translate-x-1/2 z-2000 pointer-events-auto">
         <div className={cn(
-          "px-6 py-3 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] backdrop-blur-xl border border-white/20 flex flex-col items-center gap-1 transition-all duration-300",
+          "px-4 py-2 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] backdrop-blur-xl border border-white/20 flex items-center gap-4 transition-all duration-300",
           drawingMode.startsWith('measure') ? "bg-primary/90 text-white" : "bg-background/90 text-foreground"
         )}>
           {measurementResult ? (
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center min-w-[120px]">
               <span className="text-[10px] font-black uppercase tracking-widest opacity-70">{measurementResult.type}</span>
               <span className="text-xl font-black tabular-nums">
                 {measurementResult.type === 'area' 
@@ -310,11 +321,63 @@ export function DrawingLayer() {
               </span>
             </div>
           ) : (
-            <span className="text-xs font-bold uppercase tracking-widest">
-              {drawingMode === 'select-points' 
-                ? `Selected ${selectedPointIndices.length} points • Enter to Create Polygon`
-                : `${points.length} points • Enter to Finish • Esc to Cancel`}
-            </span>
+            <div className="flex flex-col items-center min-w-[120px]">
+              <span className="text-[10px] font-black uppercase tracking-widest opacity-70">
+                {drawingMode === 'select-points' ? 'Selected' : 'Points'}
+              </span>
+              <span className="text-xl font-black tabular-nums">
+                {drawingMode === 'select-points' ? selectedPointIndices.length : points.length}
+              </span>
+            </div>
+          )}
+
+          {/* Actions */}
+          {!drawingMode.startsWith('measure') && (
+            <div className="flex items-center gap-2 border-l border-white/10 pl-4">
+              <Button 
+                size="icon" 
+                variant="ghost" 
+                className="h-9 w-9 rounded-xl hover:bg-destructive/20 text-destructive transition-colors"
+                onClick={() => {
+                  clearDrawing();
+                  setDrawingMode('none');
+                  toast.error('Drawing cancelled');
+                }}
+              >
+                <Trash2 className="w-5 h-5" />
+              </Button>
+              
+              {canFinish && (
+                <Button 
+                  size="sm" 
+                  className="h-9 px-4 rounded-xl bg-green-500 hover:bg-green-600 text-white flex items-center gap-2 shadow-lg transition-all active:scale-95"
+                  onClick={finishDrawing}
+                >
+                  <Check className="w-5 h-5" />
+                  <span className="text-xs font-bold uppercase tracking-tight">Confirm</span>
+                </Button>
+              )}
+
+              {!canFinish && points.length > 0 && (
+                <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight max-w-[80px] leading-tight opacity-50">
+                   Need {drawingMode === 'polygon' ? '3+' : (drawingMode === 'line' ? '2+' : '1+')} points
+                </div>
+              )}
+            </div>
+          )}
+
+          {drawingMode.startsWith('measure') && (
+             <Button 
+                size="icon" 
+                variant="ghost" 
+                className="h-8 w-8 rounded-full hover:bg-white/20 text-white"
+                onClick={() => {
+                  clearDrawing();
+                  setDrawingMode('none');
+                }}
+              >
+                <X className="w-4 h-4" />
+              </Button>
           )}
         </div>
       </div>
