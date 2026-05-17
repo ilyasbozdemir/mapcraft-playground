@@ -24,9 +24,11 @@ function checkMemoryLimit(estimatedBytes: number): boolean {
   return false;
 }
 
+import { JSONParser } from '@streamparser/json';
+
 /**
- * 1. GeoJSON Streaming: ReadableStream + TransformStream Pipeline
- * Chunk boyutu: 500 feature/batch
+ * 1. GeoJSON Streaming: @streamparser/json Pipeline
+ * Belleği şişirmeden, doğrudan Uint8Array akışını işleyip 500 feature'lık yığınlar halinde iletir.
  */
 export async function loadGeoJSONStreamPipeline(
   file: File, 
@@ -35,65 +37,33 @@ export async function loadGeoJSONStreamPipeline(
 ): Promise<void> {
   checkMemoryLimit(file.size);
 
+  const parser = new JSONParser({ stringBufferSize: undefined, paths: ['$.features.*'] });
+  let batch: Feature[] = [];
+
+  parser.onValue = ({ value }: any) => {
+    if (value && value.type === 'Feature') {
+      batch.push(value as Feature);
+      if (batch.length >= batchSize) {
+        onBatch([...batch]);
+        batch = [];
+      }
+    }
+  };
+
   const stream = file.stream();
   const reader = stream.getReader();
-  const decoder = new TextDecoder();
-  
-  let buffer = '';
-  let inFeaturesArray = false;
-  let bracketCount = 0;
-  let startIdx = -1;
-  let batch: Feature[] = [];
 
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
 
-    buffer += decoder.decode(value, { stream: true });
-
-    if (!inFeaturesArray) {
-      const featuresStart = buffer.indexOf('"features"');
-      if (featuresStart !== -1) {
-        const arrayStart = buffer.indexOf('[', featuresStart);
-        if (arrayStart !== -1) {
-          inFeaturesArray = true;
-          buffer = buffer.slice(arrayStart + 1);
-        }
-      }
-      continue;
+    try {
+      parser.write(value);
+    } catch (e) {
+      console.error('JSONParser write error:', e);
     }
-
-    for (let i = 0; i < buffer.length; i++) {
-      const char = buffer[i];
-      if (char === '{') {
-        if (bracketCount === 0) startIdx = i;
-        bracketCount++;
-      } else if (char === '}') {
-        bracketCount--;
-        if (bracketCount === 0 && startIdx !== -1) {
-          const featureStr = buffer.slice(startIdx, i + 1);
-          try {
-            const feature = JSON.parse(featureStr) as Feature;
-            batch.push(feature);
-            
-            if (batch.length >= batchSize) {
-              onBatch([...batch]);
-              batch = [];
-              await new Promise(resolve => setTimeout(resolve, 0)); // UI thread unblock
-            }
-          } catch (e) {
-            console.error('GeoJSON stream chunk parse hatası:', e);
-          }
-          buffer = buffer.slice(i + 1);
-          i = -1;
-          startIdx = -1;
-        }
-      }
-    }
-
-    if (bracketCount === 0 && startIdx === -1 && buffer.length > 50000) {
-      buffer = buffer.slice(-100);
-    }
+    // UI thread'in kilitlenmesini önlemek için küçük bir nefes aralığı
+    await new Promise(resolve => setTimeout(resolve, 0));
   }
 
   if (batch.length > 0) {

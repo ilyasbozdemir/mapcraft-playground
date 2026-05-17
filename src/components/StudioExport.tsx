@@ -38,11 +38,67 @@ export function StudioExport() {
     let filename = "";
 
     if (selectedFormat === 'mvt') {
+      const allFeatures = layers.flatMap(l => l.data.features);
+      const isLargeData = allFeatures.length > 5000 || totalSize > 10 * 1024 * 1024;
+      const layerName = layers[0]?.name || 'mapcraft';
+
+      if (isLargeData) {
+        const toastId = toast.loading(`Büyük Veri Akışı Başladı: MVT Dönüşümü (${allFeatures.length.toLocaleString()} obje)...`);
+        try {
+          const exportId = crypto.randomUUID();
+          const BATCH_SIZE = 2500;
+          const totalBatches = Math.ceil(allFeatures.length / BATCH_SIZE);
+
+          for (let i = 0; i < totalBatches; i++) {
+            const batch = allFeatures.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE);
+            const isFirstBatch = i === 0;
+            const isLastBatch = i === totalBatches - 1;
+
+            toast.loading(`MVT Akışı: ${Math.min((i + 1) * BATCH_SIZE, allFeatures.length).toLocaleString()} / ${allFeatures.length.toLocaleString()} obje gönderiliyor (%${Math.round(((i + 1)/totalBatches)*100)})...`, { id: toastId });
+
+            const res = await fetch('/api/export-mvt', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                geojson: { type: 'FeatureCollection', features: batch },
+                layerName,
+                isFirstBatch,
+                isLastBatch,
+                exportId
+              })
+            });
+
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              throw new Error(errData.error || `Sunucu hatası (Batch ${i+1})`);
+            }
+
+            if (isLastBatch) {
+              toast.loading('MVT Karoları Paketlendi, ZIP indiriliyor...', { id: toastId });
+              const blob = await res.blob();
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = `mapcraft-mvt-stream-tiles-${Date.now()}.zip`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              URL.revokeObjectURL(url);
+              toast.success(`MVT Akışı Tamamlandı: ${allFeatures.length.toLocaleString()} obje ZIP olarak indirildi`, { id: toastId });
+            }
+          }
+        } catch (err: any) {
+          toast.error(`MVT Akış Hatası: ${err.message}`, { id: toastId });
+        }
+        return;
+      }
+
+      // Normal (Tek Seferlik) Yükleme Modu
       const toastId = toast.loading('MVT Karoları Üretiliyor (geojson2mvt)...');
       try {
         const collection = {
           type: 'FeatureCollection',
-          features: layers.flatMap(l => l.data.features)
+          features: allFeatures
         };
 
         const res = await fetch('/api/export-mvt', {
@@ -50,7 +106,7 @@ export function StudioExport() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             geojson: collection,
-            layerName: layers[0]?.name || 'mapcraft'
+            layerName
           })
         });
 
@@ -134,23 +190,26 @@ export function StudioExport() {
         <LayoutTemplate className="w-4 h-4 mr-2" />
         Open Export Studio
       </DialogTrigger>
-      <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 border-none bg-background/60 backdrop-blur-3xl overflow-hidden rounded-[2rem] shadow-[0_50px_100px_rgba(0,0,0,0.5)]">
-        <div className="absolute inset-0 bg-linear-to-br from-primary/5 via-transparent to-primary/5 pointer-events-none" />
+      <DialogContent className="fixed top-[50%] left-[50%] -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl h-[80vh] max-h-[850px] flex flex-col p-0 border border-white/10 bg-background/85 backdrop-blur-3xl overflow-hidden rounded-[2.5rem] shadow-[0_0_120px_rgba(0,0,0,0.85)] z-[5000]">
+        <div className="absolute inset-0 bg-linear-to-br from-primary/10 via-transparent to-emerald-500/10 pointer-events-none" />
         
-        <DialogHeader className="p-8 pb-4">
+        <DialogHeader className="p-8 pb-6 border-b border-white/5 bg-white/5">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20 rotate-3">
-                <Download className="w-6 h-6 text-white" />
+            <div className="flex items-center gap-5">
+              <div className="w-14 h-14 rounded-2xl bg-linear-to-br from-primary to-emerald-500 flex items-center justify-center shadow-xl shadow-primary/30 rotate-3 group-hover:rotate-6 transition-transform">
+                <Download className="w-7 h-7 text-white animate-bounce" />
               </div>
               <div>
-                <DialogTitle className="text-2xl font-black uppercase tracking-tighter italic">MapCraft Studio</DialogTitle>
-                <DialogDescription className="text-xs font-bold text-primary/60 uppercase tracking-widest">Advanced Export Engine • V1.0</DialogDescription>
+                <DialogTitle className="text-3xl font-black uppercase tracking-tight bg-linear-to-r from-primary via-emerald-400 to-blue-500 bg-clip-text text-transparent">MAPCRAFT GIS STUDIO</DialogTitle>
+                <DialogDescription className="text-xs font-black text-emerald-400 uppercase tracking-[0.25em] flex items-center gap-2 mt-1.5">
+                  <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                  ENTERPRISE VECTOR TILE & EXPORT ENGINE • V2.0 PRO
+                </DialogDescription>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="h-6 rounded-full border-primary/20 text-primary bg-primary/5 px-3">
-                <ShieldCheck className="w-3 h-3 mr-1" /> Ready for Export
+              <Badge variant="outline" className="h-8 rounded-full border-emerald-500/30 text-emerald-400 bg-emerald-500/10 px-4 py-1 text-xs font-bold shadow-lg shadow-emerald-500/10">
+                <ShieldCheck className="w-4 h-4 mr-1.5 text-emerald-400" /> Ready for Export
               </Badge>
             </div>
           </div>
