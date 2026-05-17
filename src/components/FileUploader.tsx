@@ -5,13 +5,16 @@ import { useDropzone } from 'react-dropzone';
 import { Upload, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useMapStore } from '@/hooks/useMapStore';
-import { parseGeoJSON } from '@/lib/parsers/parseGeoJSON';
 import { parseKML, parseKMZ } from '@/lib/parsers/parseKML';
 import { parseGPX } from '@/lib/parsers/parseGPX';
-import { parseShapefileZip, parseShapefileFiles } from '@/lib/parsers/parseShapefile';
 import { getRandomColor, getGeometryType } from '@/lib/geoUtils';
 import { MapLayer } from '@/types/geo';
 import { cn } from '@/lib/utils';
+
+// Yeni Gelişmiş Ayrıştırıcılar ve Kadastro Modülleri
+import { importShapefileAdvanced } from '@/lib/parsers/ShapefileImporter';
+import { loadGeoJSONStreamPipeline, parseKMLStreamingSAX, parseJSONVariantsAndCSV } from '@/lib/parsers/BigDataLoader';
+import { analyzeCadastralFeature, getZoningColor } from '@/lib/CadastralSupport';
 
 export function FileUploader({ className, compact = false }: { className?: string, compact?: boolean }) {
   const [isParsing, setIsParsing] = useState(false);
@@ -26,94 +29,123 @@ export function FileUploader({ className, compact = false }: { className?: strin
     setLoading(true);
 
     try {
-      // Handle Shapefiles (multiple files)
-      const shpFiles = acceptedFiles.filter(f => 
-        ['.shp', '.dbf', '.shx'].some(ext => f.name.toLowerCase().endsWith(ext))
+      // 1. Shapefile bileşenleri (.shp, .dbf, .shx, .prj) veya Netcad/Shapefile arşivleri (.ncz, .zip)
+      const shpGroupFiles = acceptedFiles.filter(f => 
+        ['.shp', '.dbf', '.shx', '.prj', '.ncz', '.zip'].some(ext => f.name.toLowerCase().endsWith(ext))
       );
 
-      if (shpFiles.length > 0) {
-        const shp = shpFiles.find(f => f.name.toLowerCase().endsWith('.shp'));
-        if (shp) {
-          const data = await parseShapefileFiles(shpFiles);
+      // Sadece .shp, .ncz veya tekil bir .zip arşivi varsa Shapefile modülünü devreye al
+      const hasShpOrNcz = shpGroupFiles.some(f => 
+        ['.shp', '.ncz'].some(ext => f.name.toLowerCase().endsWith(ext)) ||
+        (f.name.toLowerCase().endsWith('.zip') && shpGroupFiles.length === 1)
+      );
+
+      if (hasShpOrNcz) {
+        const primaryFile = shpGroupFiles.find(f => ['.shp', '.ncz', '.zip'].some(ext => f.name.toLowerCase().endsWith(ext))) || shpGroupFiles[0];
+        const toastId = crypto.randomUUID();
+        toast.loading(`Shapefile / Netcad yükleniyor: ${primaryFile.name}...`, { id: toastId });
+
+        try {
+          const data = await importShapefileAdvanced(shpGroupFiles, (progress, statusText) => {
+            toast.loading(`${statusText} (%${progress})`, { id: toastId });
+          });
+
+          // Kadastro / İmar analizi ve renk ataması
+          data.features.forEach(f => {
+            const cad = analyzeCadastralFeature(f.properties);
+            if (cad.isZoning && cad.zoningFunction) {
+              // @ts-expect-error - custom property for zoning
+              f.properties._zoningColor = getZoningColor(cad.zoningFunction);
+            }
+          });
+
+          const firstZoningColor = data.features.find(f => f.properties?._zoningColor)?.properties?._zoningColor;
+
           const layer: MapLayer = {
             id: crypto.randomUUID(),
-            name: shp.name.replace('.shp', ''),
+            name: primaryFile.name.replace(/\.(shp|ncz|zip)$/i, ''),
             type: 'shapefile',
             data,
             visible: true,
-            color: getRandomColor(),
+            color: firstZoningColor || getRandomColor(),
             geometryType: getGeometryType(data) as any,
             featureCount: data.features.length,
-            size: shpFiles.reduce((acc, f) => acc + f.size, 0),
+            size: shpGroupFiles.reduce((acc, f) => acc + f.size, 0),
             createdAt: Date.now(),
           };
           addLayer(layer);
-          toast.success(`Loaded Shapefile: ${layer.name}`);
+          toast.success(`Başarıyla Yüklendi: ${layer.name} (${data.features.length} obje)`, { id: toastId });
+        } catch (err: any) {
+          toast.error(`Shapefile yükleme hatası: ${err.message}`, { id: toastId });
         }
       }
 
-      // Handle other files
+      // 2. Diğer dosyaların işlenmesi (geojson, json, kml, kmz, gpx, csv, mapcraft)
       for (const file of acceptedFiles) {
-        const extension = file.name.split('.').pop()?.toLowerCase();
+        const extension = file.name.split('.').pop()?.toLowerCase() || '';
         
-        // Skip parts of shapefiles already handled
-        if (['shp', 'dbf', 'shx'].includes(extension || '')) continue;
+        // Shapefile grubunda işlenmiş dosyaları atla
+        if (hasShpOrNcz && ['shp', 'dbf', 'shx', 'prj', 'ncz', 'zip'].includes(extension)) continue;
 
         let data: any;
         let type: MapLayer['type'] = 'geojson';
+        const layerId = crypto.randomUUID();
 
         try {
-          if ((extension === 'geojson' || extension === 'json') && file.size > 20 * 1024 * 1024) {
-            // Large file path
-            const layerId = crypto.randomUUID();
+          // A. Büyük GeoJSON / JSON / CSV Akışı (10 MB üzeri)
+          if (['geojson', 'json', 'csv'].includes(extension) && file.size > 10 * 1024 * 1024) {
             let isFirstBatch = true;
             let totalFeatures = 0;
+            const toastId = layerId;
 
-            await import('@/lib/parsers/LargeGeoJSONLoader').then(m => 
-              m.loadLargeGeoJSON(file, (batch) => {
-                totalFeatures += batch.length;
-                if (isFirstBatch) {
-                  const initialData: import('geojson').FeatureCollection = { type: 'FeatureCollection', features: batch };
-                  const layer: MapLayer = {
-                    id: layerId,
-                    name: `${file.name} (Loading...)`,
-                    type: 'geojson',
-                    data: initialData,
-                    visible: true,
-                    color: getRandomColor(),
-                    geometryType: getGeometryType(initialData) as import('@/types/geo').GeometryType,
-                    featureCount: batch.length,
-                    size: file.size,
-                    createdAt: Date.now(),
+            toast.loading(`Büyük Veri Akışı Başladı: ${file.name}...`, { id: toastId });
+
+            await loadGeoJSONStreamPipeline(file, (batch) => {
+              totalFeatures += batch.length;
+              if (isFirstBatch) {
+                const initialData: import('geojson').FeatureCollection = { type: 'FeatureCollection', features: batch };
+                const layer: MapLayer = {
+                  id: layerId,
+                  name: `${file.name} (Yükleniyor...)`,
+                  type: 'geojson',
+                  data: initialData,
+                  visible: true,
+                  color: getRandomColor(),
+                  geometryType: getGeometryType(initialData) as any,
+                  featureCount: batch.length,
+                  size: file.size,
+                  createdAt: Date.now(),
+                };
+                addLayer(layer);
+                isFirstBatch = false;
+              } else {
+                const currentLayer = useMapStore.getState().layers.find(l => l.id === layerId);
+                if (currentLayer) {
+                  const newData: import('geojson').FeatureCollection = {
+                    ...currentLayer.data,
+                    features: [...currentLayer.data.features, ...batch]
                   };
-                  addLayer(layer);
-                  isFirstBatch = false;
-                } else {
-                  const currentLayer = useMapStore.getState().layers.find(l => l.id === layerId);
-                  if (currentLayer) {
-                    const newData: import('geojson').FeatureCollection = {
-                      ...currentLayer.data,
-                      features: [...currentLayer.data.features, ...batch]
-                    };
-                    updateLayer(layerId, { 
-                      data: newData, 
-                      featureCount: totalFeatures,
-                      name: `${file.name} (${totalFeatures.toLocaleString()} obj)`
-                    });
-                  }
+                  updateLayer(layerId, { 
+                    data: newData, 
+                    featureCount: totalFeatures,
+                    name: `${file.name} (${totalFeatures.toLocaleString()} obje)`
+                  });
                 }
-                toast.info(`Importing ${file.name}: ${totalFeatures.toLocaleString()} features...`, { id: layerId });
-              })
-            );
+              }
+              toast.loading(`Akış devam ediyor: ${file.name} (${totalFeatures.toLocaleString()} obje)...`, { id: toastId });
+            });
             
-            toast.success(`Loaded Large File: ${file.name} (${totalFeatures.toLocaleString()} features)`, { id: layerId });
+            toast.success(`Büyük Veri Tamamlandı: ${file.name} (${totalFeatures.toLocaleString()} obje)`, { id: toastId });
             continue;
           }
 
-          if (extension === 'geojson' || extension === 'json') {
-            data = await parseGeoJSON(file);
+          // B. Normal GeoJSON / JSON / CSV / TopoJSON / PostGIS (10 MB altı)
+          if (['geojson', 'json', 'csv'].includes(extension)) {
+            data = await parseJSONVariantsAndCSV(file);
             type = 'geojson';
-          } else if (extension === 'mapcraft') {
+          } 
+          // C. Mapcraft Proje Dosyası
+          else if (extension === 'mapcraft') {
             const text = await file.text();
             const project = JSON.parse(text);
             if (project.layers) {
@@ -122,46 +154,105 @@ export function FileUploader({ className, compact = false }: { className?: strin
                 project.groups.forEach((g: any) => useMapStore.getState().addGroup(g));
               }
               if (project.baseLayer) useMapStore.getState().setBaseLayer(project.baseLayer);
-              toast.success(`Loaded Project: ${file.name}`);
+              toast.success(`Proje Yüklendi: ${file.name}`);
               continue;
             }
-          } else if (extension === 'kml') {
+          } 
+          // D. Büyük KML Akışı (5 MB üzeri)
+          else if (extension === 'kml' && file.size > 5 * 1024 * 1024) {
+            let isFirstBatch = true;
+            let totalFeatures = 0;
+            const toastId = layerId;
+
+            toast.loading(`Büyük KML Akışı Başladı: ${file.name}...`, { id: toastId });
+
+            await parseKMLStreamingSAX(file, (batch) => {
+              totalFeatures += batch.length;
+              if (isFirstBatch) {
+                const initialData: import('geojson').FeatureCollection = { type: 'FeatureCollection', features: batch };
+                const layer: MapLayer = {
+                  id: layerId,
+                  name: `${file.name} (Yükleniyor...)`,
+                  type: 'kml',
+                  data: initialData,
+                  visible: true,
+                  color: getRandomColor(),
+                  geometryType: getGeometryType(initialData) as any,
+                  featureCount: batch.length,
+                  size: file.size,
+                  createdAt: Date.now(),
+                };
+                addLayer(layer);
+                isFirstBatch = false;
+              } else {
+                const currentLayer = useMapStore.getState().layers.find(l => l.id === layerId);
+                if (currentLayer) {
+                  const newData: import('geojson').FeatureCollection = {
+                    ...currentLayer.data,
+                    features: [...currentLayer.data.features, ...batch]
+                  };
+                  updateLayer(layerId, { 
+                    data: newData, 
+                    featureCount: totalFeatures,
+                    name: `${file.name} (${totalFeatures.toLocaleString()} obje)`
+                  });
+                }
+              }
+              toast.loading(`KML Akışı devam ediyor: ${file.name} (${totalFeatures.toLocaleString()} obje)...`, { id: toastId });
+            });
+            
+            toast.success(`KML Akışı Tamamlandı: ${file.name} (${totalFeatures.toLocaleString()} obje)`, { id: toastId });
+            continue;
+          }
+          // E. Normal KML / KMZ (5 MB altı)
+          else if (extension === 'kml') {
             data = await parseKML(file);
             type = 'kml';
           } else if (extension === 'kmz') {
             data = await parseKMZ(file);
             type = 'kmz';
-          } else if (extension === 'gpx') {
+          } 
+          // F. GPX
+          else if (extension === 'gpx') {
             data = await parseGPX(file);
             type = 'gpx';
-          } else if (extension === 'zip') {
-            data = await parseShapefileZip(file);
-            type = 'shapefile';
           } else {
             continue;
           }
 
+          // Kadastro / İmar analizi
+          if (data && data.features) {
+            data.features.forEach((f: any) => {
+              const cad = analyzeCadastralFeature(f.properties);
+              if (cad.isZoning && cad.zoningFunction) {
+                f.properties._zoningColor = getZoningColor(cad.zoningFunction);
+              }
+            });
+          }
+
+          const firstZoningColor = data?.features?.find((f: any) => f.properties?._zoningColor)?.properties?._zoningColor;
+
           const layer: MapLayer = {
-            id: crypto.randomUUID(),
+            id: layerId,
             name: file.name,
             type,
             data,
             visible: true,
-            color: getRandomColor(),
-            geometryType: getGeometryType(data) as import('@/types/geo').GeometryType,
+            color: firstZoningColor || getRandomColor(),
+            geometryType: getGeometryType(data) as any,
             featureCount: data.features.length,
             size: file.size,
             createdAt: Date.now(),
           };
           addLayer(layer);
-          toast.success(`Loaded ${extension?.toUpperCase()}: ${file.name}`);
-        } catch (err) {
+          toast.success(`Başarıyla Yüklendi ${extension.toUpperCase()}: ${file.name}`);
+        } catch (err: any) {
           console.error(err);
-          toast.error(`Error parsing ${file.name}: ${err instanceof Error ? err.message : 'Unknown error'}`);
+          toast.error(`Dosya ayrıştırma hatası (${file.name}): ${err.message}`);
         }
       }
-    } catch {
-      toast.error('Failed to process files');
+    } catch (err: any) {
+      toast.error(`Dosya işleme hatası: ${err.message}`);
     } finally {
       setIsParsing(false);
       setLoading(false);
@@ -197,15 +288,15 @@ export function FileUploader({ className, compact = false }: { className?: strin
         {isDragActive ? "Drop files here" : "Import Geo Data"}
       </h3>
       <p className={cn("text-muted-foreground max-w-xs", compact ? "text-[10px]" : "text-sm")}>
-        Drag & drop .geojson, .kml, .kmz, .shp (zip), or .gpx files.
-        {!compact && " For shapefiles, drop .shp, .dbf, and .shx together."}
+        Drag & drop .geojson, .kml, .kmz, .shp (zip), .ncz, .csv or .gpx files.
+        {!compact && " For shapefiles, drop .shp, .dbf, .shx, and .prj together."}
       </p>
       
       {isParsing && (
         <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center rounded-xl z-10">
           <div className="flex flex-col items-center">
             <Loader2 className="w-10 h-10 text-primary animate-spin mb-2" />
-            <span className="text-sm font-medium">Parsing spatial data...</span>
+            <span className="text-sm font-medium">Coğrafi veriler işleniyor...</span>
           </div>
         </div>
       )}
