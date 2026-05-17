@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { 
   MapContainer, 
   TileLayer, 
   GeoJSON, 
   useMap,
+  useMapEvents,
   Marker
 } from 'react-leaflet';
 import L from 'leaflet';
@@ -29,7 +30,7 @@ if (typeof window !== 'undefined') {
   });
 }
 
-// O(1) Karmaşıklığında Feature Index Önbelleklemesi (Büyük verilerde findIndex O(N^2) darboğazını önler)
+// O(1) Karmaşıklığında Feature Index Önbelleklemesi
 const featureIndexCache = new WeakMap<any, number>();
 const getFeatureIndex = (features: any[], feature: any): number => {
   if (feature.id !== undefined) return Number(feature.id);
@@ -39,12 +40,43 @@ const getFeatureIndex = (features: any[], feature: any): number => {
   return idx;
 };
 
+// Hızlı Bounding Box / Viewport Kesişim Kontrolü (Culling için)
+function isFeatureInBoundsFast(feature: Feature, bounds: L.LatLngBounds): boolean {
+  if (!feature.geometry) return false;
+  try {
+    const geom = feature.geometry;
+    let coords: any[] = [];
+    if (geom.type === 'Point') {
+      const [lng, lat] = geom.coordinates;
+      return bounds.contains([lat, lng]);
+    } else if (geom.type === 'LineString' || geom.type === 'MultiPoint') {
+      coords = geom.coordinates;
+    } else if (geom.type === 'Polygon' || geom.type === 'MultiLineString') {
+      coords = geom.coordinates[0]; // outer ring
+    } else if (geom.type === 'MultiPolygon') {
+      coords = geom.coordinates[0][0];
+    }
+    
+    if (!coords || coords.length === 0) return true;
+
+    // Örnekleme yöntemiyle en az bir noktanın ekranda olup olmadığını kontrol et
+    for (let i = 0; i < Math.min(coords.length, 20); i += Math.max(1, Math.floor(coords.length / 20))) {
+      const pt = coords[i];
+      if (pt && pt.length >= 2) {
+        if (bounds.contains([pt[1], pt[0]])) return true;
+      }
+    }
+    return false;
+  } catch {
+    return true; // Hata durumunda güvenli tarafta kal ve render et
+  }
+}
+
 function AutoFitBounds() {
   const map = useMap();
   const { layers, isLoading } = useMapStore();
 
   useEffect(() => {
-    // Veri akışı (streaming) devam ederken sürekli bounds hesaplamasını ve animasyonları durdur (lag önlemi)
     if (isLoading || layers.length === 0) return;
 
     const allFeatures = layers
@@ -98,6 +130,40 @@ function FeatureFocus() {
   return null;
 }
 
+// Harita Viewport (Zoom, Pan, Bounds) Takipçisi
+function ViewportTracker({ 
+  onViewportChange 
+}: { 
+  onViewportChange: (vp: { zoom: number; center: [number, number]; bounds: L.LatLngBounds }) => void 
+}) {
+  const map = useMapEvents({
+    moveend: () => {
+      onViewportChange({
+        zoom: Number(map.getZoom().toFixed(1)),
+        center: [Number(map.getCenter().lat.toFixed(5)), Number(map.getCenter().lng.toFixed(5))],
+        bounds: map.getBounds(),
+      });
+    },
+    zoomend: () => {
+      onViewportChange({
+        zoom: Number(map.getZoom().toFixed(1)),
+        center: [Number(map.getCenter().lat.toFixed(5)), Number(map.getCenter().lng.toFixed(5))],
+        bounds: map.getBounds(),
+      });
+    },
+  });
+
+  useEffect(() => {
+    onViewportChange({
+      zoom: Number(map.getZoom().toFixed(1)),
+      center: [Number(map.getCenter().lat.toFixed(5)), Number(map.getCenter().lng.toFixed(5))],
+      bounds: map.getBounds(),
+    });
+  }, [map, onViewportChange]);
+
+  return null;
+}
+
 const BASE_LAYERS = {
   osm: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
   satellite: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
@@ -120,7 +186,6 @@ function VertexEditor({ layer }: { layer: MapLayer }) {
     } else if (feature.geometry.type === 'Polygon') {
       feature.geometry.coordinates[ringIndex][coordIndex] = [latlng.lng, latlng.lat];
       
-      // Close polygon if first or last point is moved
       if (coordIndex === 0) {
         feature.geometry.coordinates[ringIndex][feature.geometry.coordinates[ringIndex].length - 1] = [latlng.lng, latlng.lat];
       } else if (coordIndex === feature.geometry.coordinates[ringIndex].length - 1) {
@@ -158,7 +223,6 @@ function VertexEditor({ layer }: { layer: MapLayer }) {
         if (feature.geometry.type === 'Polygon') {
           return feature.geometry.coordinates.map((ring: GeoJSON.Position[], rIndex: number) => 
             ring.map((coord: GeoJSON.Position, cIndex: number) => {
-              // For polygons, skip the last point as it's a duplicate of the first
               if (cIndex === ring.length - 1) return null;
               
               return (
@@ -183,6 +247,46 @@ function VertexEditor({ layer }: { layer: MapLayer }) {
 
 export default function MapView() {
   const { layers, selectedLayerId, baseLayer, customBaseUrl, drawingMode, setSelectedFeature, updateLayer } = useMapStore();
+  
+  // Harita Viewport ve LOD Durumu
+  const [viewport, setViewport] = useState<{ zoom: number; center: [number, number]; bounds: L.LatLngBounds | null }>({
+    zoom: 6,
+    center: [39, 35],
+    bounds: null,
+  });
+
+  const handleViewportChange = useCallback((vp: { zoom: number; center: [number, number]; bounds: L.LatLngBounds }) => {
+    setViewport(vp);
+  }, []);
+
+  // LOD (Level of Detail) Kuralları
+  const getLODInfo = (zoom: number) => {
+    if (zoom < 8) return { label: 'Makro Ölçek (Max 500 Obje)', max: 500 };
+    if (zoom >= 8 && zoom < 11) return { label: 'Bölgesel Ölçek (Max 2000 Obje)', max: 2000 };
+    if (zoom >= 11 && zoom < 14) return { label: 'Şehir Ölçeği (Max 5000 Obje)', max: 5000 };
+    return { label: 'Mahalle/Parsel Ölçeği (Tüm Objeler)', max: Infinity };
+  };
+
+  const lodInfo = getLODInfo(viewport.zoom);
+
+  // Viewport Culling & LOD Filtrelemesi Uygulanmış Katmanlar
+  const visibleLayers = layers.filter(l => l.visible).map(layer => {
+    if (!viewport.bounds || layer.data.features.length <= 500) {
+      return { ...layer, culledData: layer.data, renderedCount: layer.data.features.length, totalCount: layer.data.features.length };
+    }
+
+    // Sadece ekrandaki (bounds içindeki) objeleri filtrele
+    const culled = layer.data.features.filter(f => isFeatureInBoundsFast(f, viewport.bounds!));
+    // LOD limitini uygula
+    const limited = culled.length > lodInfo.max ? culled.slice(0, lodInfo.max) : culled;
+
+    return {
+      ...layer,
+      culledData: { ...layer.data, features: limited },
+      renderedCount: limited.length,
+      totalCount: layer.data.features.length
+    };
+  });
 
   const getStyle = (layer: MapLayer) => ({
     color: layer.color,
@@ -247,6 +351,7 @@ export default function MapView() {
           maxZoom={22} 
           maxNativeZoom={baseLayer === 'satellite' ? 19 : 18}
         />
+        <ViewportTracker onViewportChange={handleViewportChange} />
         <AutoFitBounds />
         <FeatureFocus />
         <DrawingLayer />
@@ -255,10 +360,10 @@ export default function MapView() {
           <VertexEditor layer={layers.find(l => l.id === selectedLayerId)!} />
         )}
         
-        {layers.filter(l => l.visible).map((layer) => (
+        {visibleLayers.map((layer) => (
           <GeoJSON 
-            key={`${layer.id}-${layer.color}-${drawingMode}-${layer.featureCount}`}
-            data={layer.data}
+            key={`${layer.id}-${layer.color}-${drawingMode}-${layer.renderedCount}-${viewport.zoom}`}
+            data={layer.culledData}
             style={() => getStyle(layer)}
             pointToLayer={(feature, latlng) => {
               if (drawingMode === 'select-points') {
@@ -277,6 +382,40 @@ export default function MapView() {
           />
         ))}
       </MapContainer>
+
+      {/* Studio Viewport HUD (Heads-Up Display) Paneli */}
+      <div className="absolute bottom-6 right-6 z-[1000] bg-background/85 backdrop-blur-md border border-border/60 p-4 rounded-2xl shadow-2xl flex flex-col gap-2 text-xs font-mono min-w-[280px] pointer-events-auto">
+        <div className="flex items-center justify-between border-b border-border/50 pb-2">
+          <span className="font-semibold text-primary flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            GIS STUDIO ENGINE v1.2
+          </span>
+          <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-sans font-medium">
+            {lodInfo.label.split(' ')[0]}
+          </span>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 pt-1">
+          <div className="flex flex-col">
+            <span className="text-[10px] text-muted-foreground">ZOOM SEVİYESİ</span>
+            <span className="font-bold text-foreground">{viewport.zoom}x</span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-[10px] text-muted-foreground">MERKEZ (PAN)</span>
+            <span className="font-bold text-foreground truncate">{viewport.center[0].toFixed(4)}, {viewport.center[1].toFixed(4)}</span>
+          </div>
+          <div className="flex flex-col col-span-2 pt-1 border-t border-border/30">
+            <span className="text-[10px] text-muted-foreground">LOD & CULLING DURUMU</span>
+            <span className="font-medium text-foreground">{lodInfo.label}</span>
+          </div>
+          {visibleLayers.map(l => (
+            <div key={l.id} className="flex items-center justify-between col-span-2 text-[11px] bg-accent/50 px-2 py-1 rounded">
+              <span className="truncate max-w-[140px] text-muted-foreground">{l.name}:</span>
+              <span className="font-bold text-primary">{l.renderedCount} / {l.totalCount} render</span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
