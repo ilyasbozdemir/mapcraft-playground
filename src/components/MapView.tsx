@@ -29,12 +29,23 @@ if (typeof window !== 'undefined') {
   });
 }
 
+// O(1) Karmaşıklığında Feature Index Önbelleklemesi (Büyük verilerde findIndex O(N^2) darboğazını önler)
+const featureIndexCache = new WeakMap<any, number>();
+const getFeatureIndex = (features: any[], feature: any): number => {
+  if (feature.id !== undefined) return Number(feature.id);
+  if (featureIndexCache.has(feature)) return featureIndexCache.get(feature)!;
+  const idx = features.indexOf(feature);
+  featureIndexCache.set(feature, idx);
+  return idx;
+};
+
 function AutoFitBounds() {
   const map = useMap();
-  const layers = useMapStore((state) => state.layers);
+  const { layers, isLoading } = useMapStore();
 
   useEffect(() => {
-    if (layers.length === 0) return;
+    // Veri akışı (streaming) devam ederken sürekli bounds hesaplamasını ve animasyonları durdur (lag önlemi)
+    if (isLoading || layers.length === 0) return;
 
     const allFeatures = layers
       .filter(l => l.visible)
@@ -49,7 +60,7 @@ function AutoFitBounds() {
         [bounds[2], bounds[3]]
       ], { padding: [50, 50], animate: true });
     }
-  }, [layers, map]);
+  }, [layers, isLoading, map]);
 
   return null;
 }
@@ -246,21 +257,21 @@ export default function MapView() {
         
         {layers.filter(l => l.visible).map((layer) => (
           <GeoJSON 
-            key={`${layer.id}-${layer.color}-${drawingMode}-${JSON.stringify(layer.data)}`}
+            key={`${layer.id}-${layer.color}-${drawingMode}-${layer.featureCount}`}
             data={layer.data}
             style={() => getStyle(layer)}
             pointToLayer={(feature, latlng) => {
               if (drawingMode === 'select-points') {
                 return L.circleMarker(latlng, { radius: 0, opacity: 0, fillOpacity: 0, interactive: false });
               }
-              const featureIndex = layer.data.features.findIndex(f => f === feature);
+              const featureIndex = getFeatureIndex(layer.data.features, feature);
               return L.marker(latlng, {
                 draggable: drawingMode === 'edit',
                 title: feature.properties?.name || 'Point',
               }).on('dragend', (e) => handleMarkerDragEnd(layer.id, featureIndex, e));
             }}
             onEachFeature={(feature, leafletLayer) => {
-              const featureIndex = layer.data.features.findIndex(f => f === feature);
+              const featureIndex = getFeatureIndex(layer.data.features, feature);
               onEachFeature(feature, leafletLayer, layer.id, featureIndex);
             }}
           />
