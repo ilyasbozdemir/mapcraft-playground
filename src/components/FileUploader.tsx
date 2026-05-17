@@ -103,7 +103,7 @@ export function FileUploader({ className, compact = false }: { className?: strin
             await loadGeoJSONStreamPipeline(file, (batch) => {
               totalFeatures += batch.length;
               if (isFirstBatch) {
-                const initialData: import('geojson').FeatureCollection = { type: 'FeatureCollection', features: batch };
+                const initialData: import('geojson').FeatureCollection = { type: 'FeatureCollection', features: [...batch] };
                 const layer: MapLayer = {
                   id: layerId,
                   name: `${file.name} (Yükleniyor...)`,
@@ -121,20 +121,32 @@ export function FileUploader({ className, compact = false }: { className?: strin
               } else {
                 const currentLayer = useMapStore.getState().layers.find(l => l.id === layerId);
                 if (currentLayer) {
-                  const newData: import('geojson').FeatureCollection = {
-                    ...currentLayer.data,
-                    features: [...currentLayer.data.features, ...batch]
-                  };
-                  updateLayer(layerId, { 
-                    data: newData, 
-                    featureCount: totalFeatures,
-                    name: `${file.name} (${totalFeatures.toLocaleString()} obje)`
-                  });
+                  // O(1) in-place push ile React/Zustand bellek şişmesini ve yavaşlamasını tamamen engeller
+                  currentLayer.data.features.push(...batch);
+                  currentLayer.featureCount = totalFeatures;
+
+                  // UI kilitlenmesini önlemek için sadece her 25.000 objede bir Zustand store güncellemesi tetikle
+                  if (totalFeatures % 25000 < batch.length) {
+                    updateLayer(layerId, { 
+                      featureCount: totalFeatures,
+                      name: `${file.name} (${totalFeatures.toLocaleString()} obje)`
+                    });
+                  }
                 }
               }
-              toast.loading(`Akış devam ediyor: ${file.name} (${totalFeatures.toLocaleString()} obje)...`, { id: toastId });
-            });
+              toast.loading(`Akış devam ediyor: ${file.name} (${totalFeatures.toLocaleString()} obje okundu)...`, { id: toastId });
+            }, 2500); // Batch boyutunu 500 yerine 2500 yaparak performansı 5 katına çıkarıyoruz
             
+            // Akış bittiğinde son bir tam güncelleme ile haritayı render et
+            const finalLayer = useMapStore.getState().layers.find(l => l.id === layerId);
+            if (finalLayer) {
+              updateLayer(layerId, { 
+                data: { ...finalLayer.data },
+                featureCount: totalFeatures,
+                name: `${file.name} (${totalFeatures.toLocaleString()} obje)`
+              });
+            }
+
             toast.success(`Büyük Veri Tamamlandı: ${file.name} (${totalFeatures.toLocaleString()} obje)`, { id: toastId });
             continue;
           }
@@ -189,7 +201,7 @@ export function FileUploader({ className, compact = false }: { className?: strin
             await parseKMLStreamingSAX(file, (batch) => {
               totalFeatures += batch.length;
               if (isFirstBatch) {
-                const initialData: import('geojson').FeatureCollection = { type: 'FeatureCollection', features: batch };
+                const initialData: import('geojson').FeatureCollection = { type: 'FeatureCollection', features: [...batch] };
                 const layer: MapLayer = {
                   id: layerId,
                   name: `${file.name} (Yükleniyor...)`,
@@ -207,23 +219,33 @@ export function FileUploader({ className, compact = false }: { className?: strin
               } else {
                 const currentLayer = useMapStore.getState().layers.find(l => l.id === layerId);
                 if (currentLayer) {
-                  const newData: import('geojson').FeatureCollection = {
-                    ...currentLayer.data,
-                    features: [...currentLayer.data.features, ...batch]
-                  };
-                  updateLayer(layerId, { 
-                    data: newData, 
-                    featureCount: totalFeatures,
-                    name: `${file.name} (${totalFeatures.toLocaleString()} obje)`
-                  });
+                  currentLayer.data.features.push(...batch);
+                  currentLayer.featureCount = totalFeatures;
+
+                  if (totalFeatures % 25000 < batch.length) {
+                    updateLayer(layerId, { 
+                      featureCount: totalFeatures,
+                      name: `${file.name} (${totalFeatures.toLocaleString()} obje)`
+                    });
+                  }
                 }
               }
-              toast.loading(`KML Akışı devam ediyor: ${file.name} (${totalFeatures.toLocaleString()} obje)...`, { id: toastId });
+              toast.loading(`KML Akışı devam ediyor: ${file.name} (${totalFeatures.toLocaleString()} obje okundu)...`, { id: toastId });
             });
             
+            const finalLayer = useMapStore.getState().layers.find(l => l.id === layerId);
+            if (finalLayer) {
+              updateLayer(layerId, { 
+                data: { ...finalLayer.data },
+                featureCount: totalFeatures,
+                name: `${file.name} (${totalFeatures.toLocaleString()} obje)`
+              });
+            }
+
             toast.success(`KML Akışı Tamamlandı: ${file.name} (${totalFeatures.toLocaleString()} obje)`, { id: toastId });
             continue;
           }
+
           // F. Normal KML / KMZ (5 MB altı)
           else if (extension === 'kml') {
             data = await parseKML(file);
