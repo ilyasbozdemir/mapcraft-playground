@@ -24,7 +24,7 @@ export interface LayerGroup {
 export interface MapLayer {
   id: string;
   name: string;
-  type: 'geojson' | 'kml' | 'kmz' | 'shapefile' | 'gpx' | 'mapcraft';
+  type: 'geojson' | 'kml' | 'kmz' | 'shapefile' | 'gpx' | 'mapcraft' | 'mvt';
   data: FeatureCollection;
   visible: boolean;
   color: string;
@@ -33,6 +33,7 @@ export interface MapLayer {
   size: number;
   createdAt: number;
   groupId?: string;
+  mvtUrl?: string;
 }
 
 export interface MapState {

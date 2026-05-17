@@ -144,7 +144,27 @@ export function FileUploader({ className, compact = false }: { className?: strin
             data = await parseJSONVariantsAndCSV(file);
             type = 'geojson';
           } 
-          // C. Mapcraft Proje Dosyası
+          // C. MVT / PBF / MBTILES Vektör Karoları
+          else if (['mvt', 'pbf', 'mbtiles'].includes(extension)) {
+            const mvtUrl = URL.createObjectURL(file);
+            const layer: MapLayer = {
+              id: layerId,
+              name: file.name,
+              type: 'mvt',
+              data: { type: 'FeatureCollection', features: [] },
+              visible: true,
+              color: getRandomColor(),
+              geometryType: 'Mixed',
+              featureCount: 0,
+              size: file.size,
+              createdAt: Date.now(),
+              mvtUrl,
+            };
+            addLayer(layer);
+            toast.success(`MVT Vektör Karosu Yüklendi: ${file.name}`);
+            continue;
+          }
+          // D. Mapcraft Proje Dosyası
           else if (extension === 'mapcraft') {
             const text = await file.text();
             const project = JSON.parse(text);
@@ -158,7 +178,7 @@ export function FileUploader({ className, compact = false }: { className?: strin
               continue;
             }
           } 
-          // D. Büyük KML Akışı (5 MB üzeri)
+          // E. Büyük KML Akışı (5 MB üzeri)
           else if (extension === 'kml' && file.size > 5 * 1024 * 1024) {
             let isFirstBatch = true;
             let totalFeatures = 0;
@@ -204,7 +224,7 @@ export function FileUploader({ className, compact = false }: { className?: strin
             toast.success(`KML Akışı Tamamlandı: ${file.name} (${totalFeatures.toLocaleString()} obje)`, { id: toastId });
             continue;
           }
-          // E. Normal KML / KMZ (5 MB altı)
+          // F. Normal KML / KMZ (5 MB altı)
           else if (extension === 'kml') {
             data = await parseKML(file);
             type = 'kml';
@@ -212,7 +232,7 @@ export function FileUploader({ className, compact = false }: { className?: strin
             data = await parseKMZ(file);
             type = 'kmz';
           } 
-          // F. GPX
+          // G. GPX
           else if (extension === 'gpx') {
             data = await parseGPX(file);
             type = 'gpx';
@@ -288,7 +308,7 @@ export function FileUploader({ className, compact = false }: { className?: strin
         {isDragActive ? "Drop files here" : "Import Geo Data"}
       </h3>
       <p className={cn("text-muted-foreground max-w-xs", compact ? "text-[10px]" : "text-sm")}>
-        Drag & drop .geojson, .kml, .kmz, .shp (zip), .ncz, .csv or .gpx files.
+        Drag & drop .geojson, .kml, .kmz, .shp (zip), .ncz, .csv, .mvt, .pbf or .gpx files.
         {!compact && " For shapefiles, drop .shp, .dbf, .shx, and .prj together."}
       </p>
       

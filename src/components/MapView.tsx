@@ -245,6 +245,46 @@ function VertexEditor({ layer }: { layer: MapLayer }) {
   );
 }
 
+function MVTVectorGridLayer({ layer }: { layer: MapLayer }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!layer.visible || !layer.mvtUrl) return;
+
+    try {
+      const vectorGrid = L.vectorGrid.protobuf(layer.mvtUrl, {
+        vectorTileLayerStyles: {
+          sliced: {
+            weight: 1,
+            fillColor: layer.color || '#3b82f6',
+            color: layer.color || '#1d4ed8',
+            fillOpacity: 0.6,
+            fill: true
+          }
+        },
+        interactive: true,
+        getFeatureId: (f: any) => f.properties?.id || f.id || crypto.randomUUID(),
+      });
+
+      vectorGrid.on('click', (e: any) => {
+        if (e.layer && e.layer.properties) {
+          toast.info(`MVT Obje Tıklandı: ${e.layer.properties.name || e.layer.properties.id || 'Nitelik Tablosunda'}`);
+        }
+      });
+
+      vectorGrid.addTo(map);
+
+      return () => {
+        map.removeLayer(vectorGrid);
+      };
+    } catch (err) {
+      console.error('MVT VectorGrid error:', err);
+    }
+  }, [layer, map]);
+
+  return null;
+}
+
 export default function MapView() {
   const { layers, selectedLayerId, baseLayer, customBaseUrl, drawingMode, setSelectedFeature, updateLayer } = useMapStore();
   
@@ -269,8 +309,8 @@ export default function MapView() {
 
   const lodInfo = getLODInfo(viewport.zoom);
 
-  // Viewport Culling & LOD Filtrelemesi Uygulanmış Katmanlar
-  const visibleLayers = layers.filter(l => l.visible).map(layer => {
+  // Viewport Culling & LOD Filtrelemesi Uygulanmış Katmanlar (MVT hariç)
+  const visibleLayers = layers.filter(l => l.visible && l.type !== 'mvt').map(layer => {
     if (!viewport.bounds || layer.data.features.length <= 500) {
       return { ...layer, culledData: layer.data, renderedCount: layer.data.features.length, totalCount: layer.data.features.length };
     }
@@ -360,6 +400,10 @@ export default function MapView() {
           <VertexEditor layer={layers.find(l => l.id === selectedLayerId)!} />
         )}
         
+        {layers.filter(l => l.visible && l.type === 'mvt').map(layer => (
+          <MVTVectorGridLayer key={layer.id} layer={layer} />
+        ))}
+
         {visibleLayers.map((layer) => (
           <GeoJSON 
             key={`${layer.id}-${layer.color}-${drawingMode}-${layer.renderedCount}-${viewport.zoom}`}
