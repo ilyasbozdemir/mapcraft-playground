@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { 
   useMapEvents, 
   Polyline, 
@@ -39,6 +39,12 @@ export function DrawingLayer() {
     setSelectedPointIndices([]);
     setMeasurementResult(null);
   }, [setMeasurementResult]);
+
+  useEffect(() => {
+    setPoints([]);
+    setMousePos(null);
+    setSelectedPointIndices([]);
+  }, [drawingMode]);
 
   const finishDrawing = useCallback(() => {
     if (drawingMode === 'measure-distance' || drawingMode === 'measure-area') {
@@ -330,9 +336,9 @@ export function DrawingLayer() {
                 drawingMode === 'select-points' ? selectedPointIndices.length : points.length
               )}
             </span>
-            {points.length > 0 && !measurementResult && (
+            {(points.length > 0 || drawingMode === 'select-points') && !measurementResult && (
               <span className="text-[8px] font-bold uppercase tracking-widest opacity-50 mt-1 text-center">
-                {drawingMode === 'polygon' ? 'Click first point or right click to close' : 'Double click or right click to finish'}
+                {drawingMode === 'select-points' ? 'Click points to select (3+ required)' : drawingMode === 'polygon' ? 'Click first point or right click to close' : 'Double click or right click to finish'}
               </span>
             )}
           </div>

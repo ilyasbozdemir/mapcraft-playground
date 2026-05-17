@@ -246,13 +246,16 @@ export default function MapView() {
         
         {layers.filter(l => l.visible).map((layer) => (
           <GeoJSON 
-            key={`${layer.id}-${layer.color}-${JSON.stringify(layer.data.features.length)}`}
+            key={`${layer.id}-${layer.color}-${drawingMode}-${JSON.stringify(layer.data)}`}
             data={layer.data}
             style={() => getStyle(layer)}
             pointToLayer={(feature, latlng) => {
+              if (drawingMode === 'select-points') {
+                return L.circleMarker(latlng, { radius: 0, opacity: 0, fillOpacity: 0, interactive: false });
+              }
               const featureIndex = layer.data.features.findIndex(f => f === feature);
               return L.marker(latlng, {
-                draggable: true,
+                draggable: drawingMode === 'edit',
                 title: feature.properties?.name || 'Point',
               }).on('dragend', (e) => handleMarkerDragEnd(layer.id, featureIndex, e));
             }}
