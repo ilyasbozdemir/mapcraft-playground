@@ -28,14 +28,53 @@ import { formatSize } from '@/lib/geoUtils';
 
 export function StudioExport() {
   const { layers, groups, baseLayer, customBaseUrl } = useMapStore();
-  const [selectedFormat, setSelectedFormat] = useState<'geojson' | 'mapcraft' | 'json'>('geojson');
+  const [selectedFormat, setSelectedFormat] = useState<'geojson' | 'mapcraft' | 'json' | 'mvt'>('geojson');
   
   const totalFeatures = layers.reduce((acc, l) => acc + l.featureCount, 0);
   const totalSize = layers.reduce((acc, l) => acc + l.size, 0);
 
-  const exportData = () => {
+  const exportData = async () => {
     let content = "";
     let filename = "";
+
+    if (selectedFormat === 'mvt') {
+      const toastId = toast.loading('MVT Karoları Üretiliyor (geojson2mvt)...');
+      try {
+        const collection = {
+          type: 'FeatureCollection',
+          features: layers.flatMap(l => l.data.features)
+        };
+
+        const res = await fetch('/api/export-mvt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            geojson: collection,
+            layerName: layers[0]?.name || 'mapcraft'
+          })
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || 'Sunucu hatası');
+        }
+
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `mapcraft-mvt-tiles-${Date.now()}.zip`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        toast.success('MVT Vektör Karoları ZIP Olarak İndirildi', { id: toastId });
+      } catch (err: any) {
+        toast.error(`MVT Dönüşüm Hatası: ${err.message}`, { id: toastId });
+      }
+      return;
+    }
 
     if (selectedFormat === 'geojson') {
       const collection = {
@@ -95,7 +134,7 @@ export function StudioExport() {
         <LayoutTemplate className="w-4 h-4 mr-2" />
         Open Export Studio
       </DialogTrigger>
-      <DialogContent className="max-w-3xl h-[80vh] flex flex-col p-0 border-none bg-background/60 backdrop-blur-3xl overflow-hidden rounded-[2rem] shadow-[0_50px_100px_rgba(0,0,0,0.5)]">
+      <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 border-none bg-background/60 backdrop-blur-3xl overflow-hidden rounded-[2rem] shadow-[0_50px_100px_rgba(0,0,0,0.5)]">
         <div className="absolute inset-0 bg-linear-to-br from-primary/5 via-transparent to-primary/5 pointer-events-none" />
         
         <DialogHeader className="p-8 pb-4">
@@ -122,15 +161,16 @@ export function StudioExport() {
           <div className="p-8 pt-4 space-y-8 overflow-y-auto">
             <section>
               <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-4">1. Choose Format</h3>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
                   { id: 'geojson', name: 'GeoJSON', desc: 'Standard spatial data', icon: FileJson },
                   { id: 'mapcraft', name: 'MapCraft', desc: 'Full project bundle', icon: LayoutTemplate },
                   { id: 'json', name: 'Raw JSON', desc: 'Layers metadata', icon: FileCode },
+                  { id: 'mvt', name: 'MVT / PBF', desc: 'Vector Tile Protobuf', icon: ShieldCheck },
                 ].map((format) => (
                   <button
                     key={format.id}
-                    onClick={() => setSelectedFormat(format.id as 'geojson' | 'mapcraft' | 'json')}
+                    onClick={() => setSelectedFormat(format.id as 'geojson' | 'mapcraft' | 'json' | 'mvt')}
                     className={cn(
                       "p-5 rounded-2xl border-2 text-left transition-all duration-300 relative overflow-hidden group",
                       selectedFormat === format.id 
