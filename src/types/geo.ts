@@ -34,6 +34,7 @@ export interface MapLayer {
   createdAt: number;
   groupId?: string;
   mvtUrl?: string;
+  collapsed?: boolean;
 }
 
 export interface MapState {

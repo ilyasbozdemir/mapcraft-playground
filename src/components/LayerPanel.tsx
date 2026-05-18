@@ -15,7 +15,12 @@ import {
   ChevronDown,
   ChevronRight,
   GripVertical,
-  BoxSelect
+  BoxSelect,
+  MapPin,
+  Activity,
+  Square,
+  FolderTree,
+  Sparkles
 } from 'lucide-react';
 import { useMapStore } from '@/hooks/useMapStore';
 import { Button } from '@/components/ui/button';
@@ -52,7 +57,9 @@ export function LayerPanel() {
     removeGroup,
     updateGroup,
     updateLayer,
-    moveLayerToGroup
+    moveLayerToGroup,
+    selectedFeature,
+    setSelectedFeature
   } = useMapStore();
 
   const convertToPolygon = (layerId: string) => {
@@ -104,127 +111,330 @@ export function LayerPanel() {
     toast.success('Group created');
   };
 
-  const renderLayer = (layer: import('@/types/geo').MapLayer) => (
-    <div 
-      key={layer.id}
-      draggable
-      onDragStart={(e) => {
-        e.dataTransfer.setData('layerId', layer.id);
-        e.dataTransfer.effectAllowed = 'move';
-      }}
-      className={cn(
-        "group relative p-3 rounded-xl border transition-all duration-200 cursor-grab active:cursor-grabbing",
-        selectedLayerId === layer.id 
-          ? "border-primary bg-primary/5 shadow-[0_4px_12px_rgba(var(--primary),0.1)]" 
-          : "border-border/50 hover:border-primary/30 hover:bg-accent/30"
-      )}
-      onClick={() => setSelectedLayerId(layer.id)}
-    >
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <div className="flex items-center flex-col min-w-0 flex-1">
-          <div className="flex w-full items-center gap-1">
-            <GripVertical className="w-3.5 h-3.5 text-muted-foreground/30 cursor-grab active:cursor-grabbing hover:text-primary transition-colors shrink-0" />
-            <input
-              title="Edit layer name"
-              className="font-bold text-xs truncate bg-transparent border-none focus:ring-1 focus:ring-primary rounded px-1 w-full outline-none"
-              value={layer.name}
-              onChange={(e) => updateLayer(layer.id, { name: e.target.value })}
-              onClick={(e) => e.stopPropagation()}
-            />
-          </div>
-          <div className="flex w-full items-center gap-2 mt-1 pl-5">
-            <span className="text-[9px] font-black uppercase tracking-widest text-primary/70">
-              {layer.type}
-            </span>
-            <span className="text-[9px] text-muted-foreground font-medium uppercase tracking-tighter">
-              {layer.featureCount} obj • {formatSize(layer.size)}
-            </span>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-1 shrink-0">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="h-6 w-6 rounded-lg" 
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleLayerVisibility(layer.id);
-            }}
-          >
-            {layer.visible ? (
-              <Eye className="w-3.5 h-3.5 text-primary" />
-            ) : (
-              <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />
-            )}
-          </Button>
-          
-          <DropdownMenu>
-            <DropdownMenuTrigger render={
-              <Button variant="ghost" size="icon" className="h-6 w-6 rounded-lg">
-                <MoreVertical className="w-3.5 h-3.5" />
-              </Button>
-            } />
-            <DropdownMenuContent align="end" className="w-48 rounded-xl p-1.5">
-              <DropdownMenuItem onClick={() => exportLayer(layer.id)}>
-                <Download className="w-3.5 h-3.5 mr-2" />
-                GeoJSON Export
-              </DropdownMenuItem>
-              {layer.geometryType === 'Point' && layer.featureCount >= 3 && (
-                <DropdownMenuItem onClick={() => convertToPolygon(layer.id)}>
-                  <BoxSelect className="w-3.5 h-3.5 mr-2" />
-                  Convert to Polygon
-                </DropdownMenuItem>
+  const analyzeLayerFeatures = (layer: import('@/types/geo').MapLayer) => {
+    const features = layer.data?.features || [];
+    const total = features.length;
+    
+    const geoCounts: Record<string, number> = {
+      Point: 0,
+      LineString: 0,
+      Polygon: 0,
+      Other: 0
+    };
+
+    const folders: Record<string, { feature: import('geojson').Feature; index: number }[]> = {};
+    const allProps: Record<string, number> = {};
+    let totalPropsCount = 0;
+
+    features.forEach((feat, index) => {
+      // Geometry count
+      const gType = feat.geometry?.type;
+      if (gType === 'Point' || gType === 'MultiPoint') geoCounts.Point = (geoCounts.Point || 0) + 1;
+      else if (gType === 'LineString' || gType === 'MultiLineString') geoCounts.LineString = (geoCounts.LineString || 0) + 1;
+      else if (gType === 'Polygon' || gType === 'MultiPolygon') geoCounts.Polygon = (geoCounts.Polygon || 0) + 1;
+      else geoCounts.Other = (geoCounts.Other || 0) + 1;
+
+      // Folder / Category grouping
+      const props = feat.properties || {};
+      const folderName = props.folder || props.Folder || props.layer || props.Layer || props.category || props.Category || 'Root / Default';
+      if (!folders[folderName]) folders[folderName] = [];
+      folders[folderName].push({ feature: feat, index });
+
+      // Properties stats
+      const keys = Object.keys(props);
+      totalPropsCount += keys.length;
+      keys.forEach(k => {
+        allProps[k] = (allProps[k] || 0) + 1;
+      });
+    });
+
+    const avgProps = total > 0 ? Math.round(totalPropsCount / total) : 0;
+    const sortedProps = Object.entries(allProps).sort((a, b) => b[1] - a[1]).slice(0, 3).map(p => p[0]);
+
+    // Dominant geometry
+    let dominantGeo = 'Mixed';
+    let maxCount = 0;
+    Object.entries(geoCounts).forEach(([ type, count ]) => {
+      if (count > maxCount) {
+        maxCount = count;
+        dominantGeo = type;
+      }
+    });
+
+    // Generate insight
+    let insight = `Layer contains ${total} features. `;
+    if (dominantGeo !== 'Mixed' && maxCount > 0) {
+      insight += `Predominantly composed of ${dominantGeo}s (${Math.round((maxCount/total)*100)}%). `;
+    }
+    if (sortedProps.length > 0) {
+      insight += `Key attributes detected: ${sortedProps.join(', ')} (avg. ${avgProps} fields/feature).`;
+    } else {
+      insight += `No significant attribute schema detected.`;
+    }
+
+    return {
+      total,
+      geoCounts,
+      folders,
+      avgProps,
+      sortedProps,
+      insight,
+      dominantGeo
+    };
+  };
+
+  const renderLayer = (layer: import('@/types/geo').MapLayer) => {
+    const isCollapsed = layer.collapsed !== false; // default true (collapsed)
+    const analysis = !isCollapsed ? analyzeLayerFeatures(layer) : null;
+
+    return (
+      <div 
+        key={layer.id}
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.setData('layerId', layer.id);
+          e.dataTransfer.effectAllowed = 'move';
+        }}
+        className={cn(
+          "group relative p-3 rounded-xl border transition-all duration-200 cursor-grab active:cursor-grabbing mb-2 bg-background",
+          selectedLayerId === layer.id 
+            ? "border-primary bg-primary/5 shadow-[0_4px_12px_rgba(var(--primary),0.1)]" 
+            : "border-border/50 hover:border-primary/30 hover:bg-accent/30"
+        )}
+        onClick={() => setSelectedLayerId(layer.id)}
+      >
+        {/* Header Row */}
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div className="flex items-center flex-1 min-w-0">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 rounded-lg mr-1 shrink-0 hover:bg-accent"
+              onClick={(e) => {
+                e.stopPropagation();
+                updateLayer(layer.id, { collapsed: !isCollapsed });
+              }}
+            >
+              {isCollapsed ? (
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-primary" />
               )}
-              <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-                <DropdownMenuLabel className="text-[9px] uppercase tracking-widest font-black px-2 py-1.5 opacity-50">Move to Group</DropdownMenuLabel>
-                {groups.map(g => (
-                  <DropdownMenuItem 
-                    key={g.id} 
-                    onClick={() => moveLayerToGroup(layer.id, g.id)}
-                    className={cn(layer.groupId === g.id && "bg-primary/10 text-primary font-bold")}
-                  >
-                    <Folder className="w-3.5 h-3.5 mr-2" />
-                    {g.name}
-                  </DropdownMenuItem>
-                ))}
-                {layer.groupId && (
-                  <DropdownMenuItem onClick={() => moveLayerToGroup(layer.id, undefined)}>
-                    <Layers className="w-3.5 h-3.5 mr-2" />
-                    Remove from Group
+            </Button>
+            <GripVertical className="w-3.5 h-3.5 text-muted-foreground/30 cursor-grab active:cursor-grabbing hover:text-primary transition-colors shrink-0 mr-1" />
+            <div className="flex flex-col min-w-0 flex-1">
+              <input
+                title="Edit layer name"
+                className="font-bold text-xs truncate bg-transparent border-none focus:ring-1 focus:ring-primary rounded px-1 w-full outline-none"
+                value={layer.name}
+                onChange={(e) => updateLayer(layer.id, { name: e.target.value })}
+                onClick={(e) => e.stopPropagation()}
+              />
+              <div className="flex w-full items-center gap-2 mt-0.5 px-1">
+                <span className="text-[9px] font-black uppercase tracking-widest text-primary/70">
+                  {layer.type}
+                </span>
+                <span className="text-[9px] text-muted-foreground font-medium uppercase tracking-tighter">
+                  {layer.featureCount} obj • {formatSize(layer.size)}
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-1 shrink-0">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-6 w-6 rounded-lg" 
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleLayerVisibility(layer.id);
+              }}
+            >
+              {layer.visible ? (
+                <Eye className="w-3.5 h-3.5 text-primary" />
+              ) : (
+                <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />
+              )}
+            </Button>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger render={
+                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-lg">
+                  <MoreVertical className="w-3.5 h-3.5" />
+                </Button>
+              } />
+              <DropdownMenuContent align="end" className="w-48 rounded-xl p-1.5">
+                <DropdownMenuItem onClick={() => exportLayer(layer.id)}>
+                  <Download className="w-3.5 h-3.5 mr-2" />
+                  GeoJSON Export
+                </DropdownMenuItem>
+                {layer.geometryType === 'Point' && layer.featureCount >= 3 && (
+                  <DropdownMenuItem onClick={() => convertToPolygon(layer.id)}>
+                    <BoxSelect className="w-3.5 h-3.5 mr-2" />
+                    Convert to Polygon
                   </DropdownMenuItem>
                 )}
-              </DropdownMenuGroup>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => removeLayer(layer.id)} className="text-destructive focus:bg-destructive/10">
-                <Trash2 className="w-3.5 h-3.5 mr-2" />
-                Remove Layer
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel className="text-[9px] uppercase tracking-widest font-black px-2 py-1.5 opacity-50">Move to Group</DropdownMenuLabel>
+                  {groups.map(g => (
+                    <DropdownMenuItem 
+                      key={g.id} 
+                      onClick={() => moveLayerToGroup(layer.id, g.id)}
+                      className={cn(layer.groupId === g.id && "bg-primary/10 text-primary font-bold")}
+                    >
+                      <Folder className="w-3.5 h-3.5 mr-2" />
+                      {g.name}
+                    </DropdownMenuItem>
+                  ))}
+                  {layer.groupId && (
+                    <DropdownMenuItem onClick={() => moveLayerToGroup(layer.id, undefined)}>
+                      <Layers className="w-3.5 h-3.5 mr-2" />
+                      Remove from Group
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => removeLayer(layer.id)} className="text-destructive focus:bg-destructive/10">
+                  <Trash2 className="w-3.5 h-3.5 mr-2" />
+                  Remove Layer
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
-      </div>
 
-      <div className="flex items-center gap-2">
-        <div 
-          className="w-2.5 h-2.5 rounded-full ring-1 ring-white/10" 
-          style={{ backgroundColor: layer.color }}
-        />
-        <input 
-          type="color" 
-          title="Change layer color"
-          value={layer.color} 
-          onChange={(e) => updateLayerColor(layer.id, e.target.value)}
-          className="w-4 h-4 p-0 border-none bg-transparent cursor-pointer"
-          onClick={(e) => e.stopPropagation()}
-        />
-        <span className="text-[9px] font-mono text-muted-foreground/60 uppercase ml-auto">
-          {layer.geometryType}
-        </span>
+        {/* Color & Geometry Type Row */}
+        <div className="flex items-center gap-2 pl-7">
+          <div 
+            className="w-2.5 h-2.5 rounded-full ring-1 ring-white/10" 
+            style={{ backgroundColor: layer.color }}
+          />
+          <input 
+            type="color" 
+            title="Change layer color"
+            value={layer.color} 
+            onChange={(e) => updateLayerColor(layer.id, e.target.value)}
+            className="w-4 h-4 p-0 border-none bg-transparent cursor-pointer"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <span className="text-[9px] font-mono text-muted-foreground/60 uppercase ml-auto">
+            {layer.geometryType}
+          </span>
+        </div>
+
+        {/* Collapsed / Expanded Content (The AI Interpretation & Breakdown) */}
+        {!isCollapsed && analysis && (
+          <div className="mt-3 pt-3 border-t border-border/40 space-y-3 cursor-default" onClick={(e) => e.stopPropagation()}>
+            {/* AI Insights Box */}
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-2.5 shadow-sm backdrop-blur-sm">
+              <div className="flex items-center gap-1.5 mb-1 text-primary">
+                <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                <span className="text-[10px] font-black uppercase tracking-wider">AI Layer Interpretation</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed font-medium">
+                {analysis.insight}
+              </p>
+            </div>
+
+            {/* Geometry Breakdown */}
+            <div>
+              <div className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1.5 px-1">
+                Geometry Breakdown
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                <div className="flex flex-col items-center justify-center p-1.5 rounded-lg bg-accent/40 border border-border/50">
+                  <div className="flex items-center gap-1 text-[10px] font-bold text-foreground">
+                    <MapPin className="w-3 h-3 text-emerald-500" />
+                    <span>{analysis.geoCounts.Point}</span>
+                  </div>
+                  <span className="text-[9px] text-muted-foreground font-medium uppercase mt-0.5">Points</span>
+                </div>
+                <div className="flex flex-col items-center justify-center p-1.5 rounded-lg bg-accent/40 border border-border/50">
+                  <div className="flex items-center gap-1 text-[10px] font-bold text-foreground">
+                    <Activity className="w-3 h-3 text-blue-500" />
+                    <span>{analysis.geoCounts.LineString}</span>
+                  </div>
+                  <span className="text-[9px] text-muted-foreground font-medium uppercase mt-0.5">Lines</span>
+                </div>
+                <div className="flex flex-col items-center justify-center p-1.5 rounded-lg bg-accent/40 border border-border/50">
+                  <div className="flex items-center gap-1 text-[10px] font-bold text-foreground">
+                    <Square className="w-3 h-3 text-purple-500" />
+                    <span>{analysis.geoCounts.Polygon}</span>
+                  </div>
+                  <span className="text-[9px] text-muted-foreground font-medium uppercase mt-0.5">Polygons</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Folders & Features Structure */}
+            <div>
+              <div className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1.5 px-1 flex items-center justify-between">
+                <span>Features Structure</span>
+                <span className="text-[9px] font-normal text-muted-foreground/70">({analysis.total} total)</span>
+              </div>
+              <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1 custom-scrollbar">
+                {Object.entries(analysis.folders).map(([folderName, items]) => (
+                  <div key={folderName} className="border border-border/40 rounded-lg overflow-hidden bg-accent/10">
+                    <div className="flex items-center justify-between px-2.5 py-1.5 bg-accent/30 border-b border-border/30">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <FolderTree className="w-3.5 h-3.5 text-primary/70 shrink-0" />
+                        <span className="text-[10px] font-bold truncate text-foreground">{folderName}</span>
+                      </div>
+                      <Badge variant="secondary" className="text-[9px] font-mono px-1.5 py-0 h-4">
+                        {items.length}
+                      </Badge>
+                    </div>
+                    <div className="divide-y divide-border/30 max-h-[140px] overflow-y-auto">
+                      {items.slice(0, 50).map(({ feature, index }) => {
+                        const featId = feature.id ?? index;
+                        const isSelected = selectedFeature?.layerId === layer.id && selectedFeature?.featureId === featId;
+                        const gType = feature.geometry?.type;
+                        const name = feature.properties?.name || feature.properties?.Name || feature.properties?.title || `Feature #${index + 1}`;
+                        
+                        return (
+                          <div
+                            key={featId}
+                            onClick={() => setSelectedFeature({ layerId: layer.id, featureId: featId })}
+                            className={cn(
+                              "flex items-center justify-between px-2.5 py-1.5 text-[10px] cursor-pointer transition-colors hover:bg-primary/10",
+                              isSelected ? "bg-primary/15 font-bold text-primary" : "text-muted-foreground hover:text-foreground"
+                            )}
+                          >
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              {gType === 'Point' || gType === 'MultiPoint' ? (
+                                <MapPin className="w-3 h-3 text-emerald-500 shrink-0" />
+                              ) : gType === 'LineString' || gType === 'MultiLineString' ? (
+                                <Activity className="w-3 h-3 text-blue-500 shrink-0" />
+                              ) : (
+                                <Square className="w-3 h-3 text-purple-500 shrink-0" />
+                              )}
+                              <span className="truncate">{name}</span>
+                            </div>
+                            {feature.properties && Object.keys(feature.properties).length > 0 && (
+                              <span className="text-[9px] font-mono text-muted-foreground/50 shrink-0 ml-1">
+                                {Object.keys(feature.properties).length} props
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {items.length > 50 && (
+                        <div className="text-[9px] text-center py-1 text-muted-foreground/70 bg-accent/10 font-medium">
+                          + {items.length - 50} more features
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="flex flex-col h-full bg-background border-r border-border/40 w-[320px] shadow-2xl">
