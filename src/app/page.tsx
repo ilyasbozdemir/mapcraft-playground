@@ -52,12 +52,12 @@ export default function Home() {
   const { layers, baseLayer, setBaseLayer, customBaseUrl, setCustomBaseUrl } = useMapStore();
 
   const BASE_LAYER_OPTIONS = [
-    { id: 'osm', label: 'Standard', icon: Globe },
-    { id: 'satellite', label: 'Satellite', icon: Sun },
-    { id: 'dark', label: 'Dark Mode', icon: Moon },
-    { id: 'topo', label: 'Topographic', icon: MapIcon },
-    { id: 'terrain', label: 'Terrain', icon: Navigation2 },
-    { id: 'custom', label: 'Custom Tiles', icon: Plus },
+    { id: 'osm', label: 'Sokak (OSM Standard)', icon: Globe },
+    { id: 'satellite', label: 'Uydu (Google Hybrid)', icon: Sun },
+    { id: 'dark', label: 'Karanlık (CartoDB Dark)', icon: Moon },
+    { id: 'topo', label: 'Topoğrafya (OpenTopo)', icon: MapIcon },
+    { id: 'terrain', label: 'Arazi & Dağlar (Esri Terrain)', icon: Navigation2 },
+    { id: 'custom', label: 'Özel Altlık (Custom URL)', icon: Plus },
   ];
 
   return (

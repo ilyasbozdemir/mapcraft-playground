@@ -102,10 +102,10 @@ export function AttributeTable() {
                 </TableHeader>
                 <TableBody>
                   {selectedLayer.data.features.slice(0, limit).map((feature, idx) => {
-                    const featId = feature.id !== undefined ? feature.id : idx.toString();
+                    const featId = idx.toString();
                     return (
                       <TableRow 
-                        key={featId} 
+                        key={`${selectedLayer.id}-table-row-${idx}`} 
                         onClick={() => setSelectedFeature({ layerId: selectedLayer.id, featureId: featId })}
                         className="hover:bg-primary/5 cursor-pointer group transition-colors"
                       >

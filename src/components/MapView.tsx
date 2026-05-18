@@ -33,11 +33,11 @@ if (typeof window !== 'undefined') {
 // O(1) Karmaşıklığında Feature Index Önbelleklemesi
 const featureIndexCache = new WeakMap<any, number>();
 const getFeatureIndex = (features: any[], feature: any): number => {
-  if (feature.id !== undefined) return Number(feature.id);
   if (featureIndexCache.has(feature)) return featureIndexCache.get(feature)!;
-  const idx = features.indexOf(feature);
-  featureIndexCache.set(feature, idx);
-  return idx;
+  const idx = features.findIndex(f => f === feature || (f.id !== undefined && feature.id !== undefined && f.id === feature.id));
+  const finalIdx = idx !== -1 ? idx : 0;
+  featureIndexCache.set(feature, finalIdx);
+  return finalIdx;
 };
 
 // Hızlı Bounding Box / Viewport Kesişim Kontrolü (Culling için)
@@ -108,8 +108,8 @@ function FeatureFocus() {
     if (!layer) return;
 
     const feature = layer.data.features.find((f, i) => {
-      if (f.id !== undefined && f.id.toString() === selectedFeature.featureId.toString()) return true;
       if (i.toString() === selectedFeature.featureId.toString()) return true;
+      if (f.id !== undefined && f.id.toString() === selectedFeature.featureId.toString()) return true;
       return false;
     });
 
@@ -182,7 +182,7 @@ function ViewportTracker({
 
 const BASE_LAYERS = {
   osm: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-  satellite: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+  satellite: "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}", // Google Hybrid (Uydu + Yollar/İsimler)
   dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
   topo: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
   terrain: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}"
@@ -330,7 +330,10 @@ export default function MapView() {
     // 1. Önce aktif filtre varsa veriyi filtrele (Solo Mode)
     let featuresToProcess = layer.data.features;
     if (activeFilter && activeFilter.layerId === layer.id) {
-      featuresToProcess = featuresToProcess.filter(feat => {
+      featuresToProcess = featuresToProcess.filter((feat, featIdx) => {
+        if (activeFilter.featureId !== undefined) {
+          return featIdx.toString() === activeFilter.featureId.toString() || (feat.id !== undefined && feat.id.toString() === activeFilter.featureId.toString());
+        }
         const props = feat.properties || {};
         if (activeFilter.styleUrl) {
           const sVal = props.styleUrl || props.StyleUrl || props.style || props.Style || props.class || props.Class || props.kml_style;
