@@ -127,6 +127,7 @@ export function LayerPanel() {
     };
 
     const folders: Record<string, { feature: import('geojson').Feature; index: number }[]> = {};
+    const styleGroups: Record<string, { feature: import('geojson').Feature; index: number }[]> = {};
     const allProps: Record<string, number> = {};
     let totalPropsCount = 0;
 
@@ -138,11 +139,19 @@ export function LayerPanel() {
       else if (gType === 'Polygon' || gType === 'MultiPolygon') geoCounts.Polygon = (geoCounts.Polygon || 0) + 1;
       else geoCounts.Other = (geoCounts.Other || 0) + 1;
 
-      // Folder / Category grouping
+      // Folder / Category grouping (Eğer klasör yoksa styleUrl/Lejant adını klasör adı yap)
       const props = feat.properties || {};
-      const folderName = props.folder || props.Folder || props.layer || props.Layer || props.category || props.Category || 'Root / Default';
+      const styleVal = props.styleUrl || props.StyleUrl || props.style || props.Style || props.class || props.Class || props.kml_style;
+      const cleanStyle = styleVal ? String(styleVal).replace(/^#/, '') : null;
+      const folderName = props.folder || props.Folder || props.layer || props.Layer || props.category || props.Category || cleanStyle || 'General Features';
+      
       if (!folders[folderName]) folders[folderName] = [];
       folders[folderName].push({ feature: feat, index });
+
+      // Style URL grouping (Lejant / Stil gruplaması)
+      const cleanStyleName = cleanStyle || 'Default Style';
+      if (!styleGroups[cleanStyleName]) styleGroups[cleanStyleName] = [];
+      styleGroups[cleanStyleName].push({ feature: feat, index });
 
       // Properties stats
       const keys = Object.keys(props);
@@ -180,6 +189,7 @@ export function LayerPanel() {
       total,
       geoCounts,
       folders,
+      styleGroups,
       avgProps,
       sortedProps,
       insight,
@@ -514,6 +524,149 @@ export function LayerPanel() {
                 })}
               </div>
             </div>
+
+            {/* Style Groups (Lejant / Stil Gruplaması) */}
+            {analysis.styleGroups && Object.keys(analysis.styleGroups).length > 0 && (
+              <div className="mt-3 pt-3 border-t border-border/40">
+                <div className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1.5 px-1 flex items-center justify-between">
+                  <span>Style Groups (Lejant)</span>
+                  <span className="text-[9px] font-normal text-muted-foreground/70">({Object.keys(analysis.styleGroups).length} styles)</span>
+                </div>
+                <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1 custom-scrollbar">
+                  {Object.entries(analysis.styleGroups).map(([styleName, items]) => {
+                    const styleKey = `${layer.id}-style-${styleName}`;
+                    const currentLimit = displayLimits[styleKey] || 50;
+
+                    return (
+                      <div key={styleName} className="border border-border/40 rounded-lg overflow-hidden bg-accent/10">
+                        <div className="flex items-center justify-between px-2.5 py-1.5 bg-accent/30 border-b border-border/30">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                            <span className="text-[10px] font-bold truncate text-foreground">{styleName}</span>
+                          </div>
+                          <Badge variant="secondary" className="text-[9px] font-mono px-1.5 py-0 h-4 bg-amber-500/10 text-amber-500 border-0">
+                            {items.length}
+                          </Badge>
+                        </div>
+                        <div 
+                          className="divide-y divide-border/30 max-h-[140px] overflow-y-auto"
+                          onScroll={(e) => {
+                            const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+                            if (scrollHeight - scrollTop - clientHeight < 40) {
+                              if (currentLimit < items.length) {
+                                setDisplayLimits(prev => ({
+                                  ...prev,
+                                  [styleKey]: Math.min((prev[styleKey] || 50) + 100, items.length)
+                                }));
+                              }
+                            }
+                          }}
+                        >
+                          {items.slice(0, currentLimit).map(({ feature, index }) => {
+                            const featId = index.toString();
+                            const isSelected = selectedFeature?.layerId === layer.id && selectedFeature?.featureId === featId;
+                            const gType = feature.geometry?.type;
+                            const props = feature.properties || {};
+                            const name = props.name || props.Name || props.title || `Feature #${index + 1}`;
+                            const subLabel = props.category || props.folder || props.description;
+                            const propKeys = Object.keys(props);
+                            const propKeyStr = `${layer.id}-${featId}`;
+                            const isPropsExpanded = expandedProps[propKeyStr] || false;
+
+                            return (
+                              <div key={`${layer.id}-styleitem-${index}`} className="flex flex-col border-b border-border/20 last:border-none">
+                                <div
+                                  onClick={() => setSelectedFeature({ layerId: layer.id, featureId: featId })}
+                                  className={cn(
+                                    "flex items-center justify-between px-2.5 py-1.5 text-[10px] cursor-pointer transition-colors group/feat",
+                                    isSelected ? "bg-primary/15 font-bold text-primary" : "text-muted-foreground hover:bg-primary/10 hover:text-foreground"
+                                  )}
+                                >
+                                  <div className="flex items-center gap-1.5 min-w-0 flex-1 pr-2">
+                                    {gType === 'Point' || gType === 'MultiPoint' ? (
+                                      <MapPin className="w-3 h-3 text-emerald-500 shrink-0" />
+                                    ) : gType === 'LineString' || gType === 'MultiLineString' ? (
+                                      <Activity className="w-3 h-3 text-blue-500 shrink-0" />
+                                    ) : (
+                                      <Square className="w-3 h-3 text-purple-500 shrink-0" />
+                                    )}
+                                    <div className="flex flex-col min-w-0 flex-1">
+                                      <span className="truncate font-semibold text-foreground">{name}</span>
+                                      {subLabel && (
+                                        <span className="truncate text-[8.5px] text-muted-foreground/80 font-mono -mt-0.5">
+                                          {String(subLabel)}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    {propKeys.length > 0 && (
+                                      <Button
+                                        variant="ghost" 
+                                        size="sm"
+                                        title="Öznitelikleri Göster / Gizle"
+                                        className={cn(
+                                          "h-5 px-1.5 py-0 text-[8.5px] font-mono rounded hover:bg-accent hover:text-accent-foreground",
+                                          isPropsExpanded ? "bg-primary/20 text-primary font-bold" : "text-muted-foreground/70"
+                                        )}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setExpandedProps(prev => ({ ...prev, [propKeyStr]: !isPropsExpanded }));
+                                        }}
+                                      >
+                                        <Info className="w-2.5 h-2.5 mr-1 inline-block" />
+                                        {propKeys.length} props
+                                      </Button>
+                                    )}
+                                    <div 
+                                      title="Haritada Odaklan (Focus)"
+                                      className="w-5 h-5 rounded flex items-center justify-center opacity-0 group-hover/feat:opacity-100 transition-opacity bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedFeature({ layerId: layer.id, featureId: featId });
+                                      }}
+                                    >
+                                      <Target className="w-3 h-3" />
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Genişletilmiş Öznitelik Tablosu (Expanded Props) */}
+                                {isPropsExpanded && propKeys.length > 0 && (
+                                  <div className="bg-accent/30 p-2 border-t border-border/30 text-[9px] space-y-1 font-mono cursor-default" onClick={e => e.stopPropagation()}>
+                                    <div className="text-[8px] font-black uppercase tracking-wider text-muted-foreground mb-1 border-b border-border/40 pb-0.5 flex items-center justify-between">
+                                      <span>Nitelik Detayları (Attributes)</span>
+                                      <span className="text-primary font-bold">{name}</span>
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-1 max-h-[120px] overflow-y-auto pr-1 custom-scrollbar">
+                                      {propKeys.map(k => (
+                                        <div key={k} className="flex items-start justify-between gap-2 bg-background/50 px-1.5 py-0.5 rounded border border-border/30">
+                                          <span className="font-bold text-muted-foreground truncate max-w-[100px]">{k}:</span>
+                                          <span className="text-foreground truncate font-sans text-[9.5px]" title={String(props[k])}>
+                                            {String(props[k])}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                          {items.length > currentLimit && (
+                            <div className="text-[9px] text-center py-1.5 text-muted-foreground/60 bg-accent/20 font-medium animate-pulse flex items-center justify-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-ping"></span>
+                              <span>Scroll down to load more ({items.length - currentLimit} remaining)...</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

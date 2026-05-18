@@ -391,7 +391,7 @@ export default function MapView() {
     const name = props.name || props.Name || props.title || props.id || '';
     if (name) {
       leafletLayer.bindTooltip(String(name), {
-        permanent: viewport.zoom >= 14, // 14 zoom ve üzerinde kalıcı göster
+        permanent: viewport.zoom >= 18, // 18 zoom ve üzerinde kalıcı göster
         direction: 'center',
         className: 'polygon-label bg-background/85 backdrop-blur-xs text-[9.5px] font-bold px-1.5 py-0.5 rounded border border-primary/30 shadow-xs text-foreground font-mono pointer-events-none'
       });
