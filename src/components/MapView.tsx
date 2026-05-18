@@ -302,7 +302,7 @@ function MVTVectorGridLayer({ layer }: { layer: MapLayer }) {
 }
 
 export default function MapView() {
-  const { layers, selectedLayerId, baseLayer, customBaseUrl, drawingMode, setSelectedFeature, updateLayer } = useMapStore();
+  const { layers, selectedLayerId, baseLayer, customBaseUrl, drawingMode, activeFilter, setSelectedFeature, updateLayer } = useMapStore();
   
   // Harita Viewport ve LOD Durumu
   const [viewport, setViewport] = useState<{ zoom: number; center: [number, number]; bounds: L.LatLngBounds | null }>({
@@ -325,15 +325,34 @@ export default function MapView() {
 
   const lodInfo = getLODInfo(viewport.zoom);
 
-  // Viewport Culling & LOD Filtrelemesi Uygulanmış Katmanlar (MVT hariç)
+  // Viewport Culling & LOD Filtrelemesi Uygulanmış Katmanlar (MVT ve Solo Filtre entegreli)
   const visibleLayers = layers.filter(l => l.visible && l.type !== 'mvt').map(layer => {
-    if (!viewport.bounds || layer.data.features.length <= 500) {
-      return { ...layer, culledData: layer.data, renderedCount: layer.data.features.length, totalCount: layer.data.features.length };
+    // 1. Önce aktif filtre varsa veriyi filtrele (Solo Mode)
+    let featuresToProcess = layer.data.features;
+    if (activeFilter && activeFilter.layerId === layer.id) {
+      featuresToProcess = featuresToProcess.filter(feat => {
+        const props = feat.properties || {};
+        if (activeFilter.styleUrl) {
+          const sVal = props.styleUrl || props.StyleUrl || props.style || props.Style || props.class || props.Class || props.kml_style;
+          const cleanS = sVal ? String(sVal).replace(/^#/, '') : 'Default Style';
+          return cleanS === activeFilter.styleUrl;
+        }
+        if (activeFilter.folderName) {
+          const sVal = props.styleUrl || props.StyleUrl || props.style || props.Style || props.class || props.Class || props.kml_style;
+          const cleanS = sVal ? String(sVal).replace(/^#/, '') : null;
+          const fName = props.folder || props.Folder || props.layer || props.Layer || props.category || props.Category || cleanS || 'General Features';
+          return fName === activeFilter.folderName;
+        }
+        return true;
+      });
     }
 
-    // Sadece ekrandaki (bounds içindeki) objeleri filtrele
-    const culled = layer.data.features.filter(f => isFeatureInBoundsFast(f, viewport.bounds!));
-    // LOD limitini uygula
+    // 2. Viewport culling ve LOD hesaplamaları
+    if (!viewport.bounds || featuresToProcess.length <= 500) {
+      return { ...layer, culledData: { ...layer.data, features: featuresToProcess }, renderedCount: featuresToProcess.length, totalCount: layer.data.features.length };
+    }
+
+    const culled = featuresToProcess.filter(f => isFeatureInBoundsFast(f, viewport.bounds!));
     const limited = culled.length > lodInfo.max ? culled.slice(0, lodInfo.max) : culled;
 
     return {

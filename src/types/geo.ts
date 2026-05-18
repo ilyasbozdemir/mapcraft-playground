@@ -42,6 +42,7 @@ export interface MapState {
   groups: LayerGroup[];
   selectedLayerId: string | null;
   selectedFeature: { layerId: string; featureId: string | number } | null;
+  activeFilter: { layerId: string; styleUrl?: string; folderName?: string } | null;
   baseLayer: BaseLayerType;
   customBaseUrl: string;
   drawingMode: DrawingMode;
@@ -63,6 +64,7 @@ export interface MapState {
   setDrawingMode: (mode: DrawingMode) => void;
   setSelectedLayerId: (id: string | null) => void;
   setSelectedFeature: (feature: { layerId: string; featureId: string | number } | null) => void;
+  setActiveFilter: (filter: { layerId: string; styleUrl?: string; folderName?: string } | null) => void;
   setLoading: (loading: boolean) => void;
   setMeasurementResult: (result: { value: number; unit: string; type: 'distance' | 'area' } | null) => void;
   moveLayerToGroup: (layerId: string, groupId: string | undefined) => void;

@@ -6,6 +6,7 @@ export const useMapStore = create<MapState>((set) => ({
   groups: [],
   selectedLayerId: null,
   selectedFeature: null,
+  activeFilter: null,
   baseLayer: 'osm',
   customBaseUrl: '',
   drawingMode: 'none',
@@ -20,7 +21,8 @@ export const useMapStore = create<MapState>((set) => ({
   removeLayer: (id) => set((state) => ({ 
     layers: state.layers.filter((l) => l.id !== id),
     selectedLayerId: state.selectedLayerId === id ? null : state.selectedLayerId,
-    selectedFeature: state.selectedFeature?.layerId === id ? null : state.selectedFeature
+    selectedFeature: state.selectedFeature?.layerId === id ? null : state.selectedFeature,
+    activeFilter: state.activeFilter?.layerId === id ? null : state.activeFilter
   })),
 
   updateLayer: (id, updates) => set((state) => ({
@@ -60,6 +62,7 @@ export const useMapStore = create<MapState>((set) => ({
   }),
   setSelectedLayerId: (selectedLayerId) => set({ selectedLayerId }),
   setSelectedFeature: (selectedFeature) => set({ selectedFeature }),
+  setActiveFilter: (activeFilter) => set({ activeFilter }),
   setLoading: (isLoading) => set({ isLoading }),
   setMeasurementResult: (measurementResult) => set({ measurementResult }),
   

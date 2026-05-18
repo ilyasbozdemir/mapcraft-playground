@@ -63,7 +63,9 @@ export function LayerPanel() {
     updateLayer,
     moveLayerToGroup,
     selectedFeature,
-    setSelectedFeature
+    setSelectedFeature,
+    activeFilter,
+    setActiveFilter
   } = useMapStore();
 
   const convertToPolygon = (layerId: string) => {
@@ -396,13 +398,35 @@ export function LayerPanel() {
                   return (
                     <div key={folderName} className="border border-border/40 rounded-lg overflow-hidden bg-accent/10">
                       <div className="flex items-center justify-between px-2.5 py-1.5 bg-accent/30 border-b border-border/30">
-                        <div className="flex items-center gap-1.5 min-w-0">
+                        <div className="flex items-center gap-1.5 min-w-0 flex-1 pr-2">
                           <FolderTree className="w-3.5 h-3.5 text-primary/70 shrink-0" />
                           <span className="text-[10px] font-bold truncate text-foreground">{folderName}</span>
                         </div>
-                        <Badge variant="secondary" className="text-[9px] font-mono px-1.5 py-0 h-4">
-                          {items.length}
-                        </Badge>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title={activeFilter?.layerId === layer.id && activeFilter?.folderName === folderName ? "Filtreyi Kaldır (Tümünü Göster)" : "Sadece Bu Grubu Göster (Solo)"}
+                            className={cn(
+                              "h-5 px-1.5 py-0 text-[8.5px] font-mono rounded flex items-center gap-1 transition-colors",
+                              activeFilter?.layerId === layer.id && activeFilter?.folderName === folderName ? "bg-primary text-primary-foreground font-bold" : "bg-accent/50 text-muted-foreground hover:bg-primary/20 hover:text-foreground"
+                            )}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (activeFilter?.layerId === layer.id && activeFilter?.folderName === folderName) {
+                                setActiveFilter(null);
+                              } else {
+                                setActiveFilter({ layerId: layer.id, folderName });
+                              }
+                            }}
+                          >
+                            <Eye className="w-2.5 h-2.5" />
+                            {activeFilter?.layerId === layer.id && activeFilter?.folderName === folderName ? "Tümü" : "Solo"}
+                          </Button>
+                          <Badge variant="secondary" className="text-[9px] font-mono px-1.5 py-0 h-4">
+                            {items.length}
+                          </Badge>
+                        </div>
                       </div>
                       <div 
                         className="divide-y divide-border/30 max-h-[140px] overflow-y-auto"
@@ -540,13 +564,35 @@ export function LayerPanel() {
                     return (
                       <div key={styleName} className="border border-border/40 rounded-lg overflow-hidden bg-accent/10">
                         <div className="flex items-center justify-between px-2.5 py-1.5 bg-accent/30 border-b border-border/30">
-                          <div className="flex items-center gap-1.5 min-w-0">
+                          <div className="flex items-center gap-1.5 min-w-0 flex-1 pr-2">
                             <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                             <span className="text-[10px] font-bold truncate text-foreground">{styleName}</span>
                           </div>
-                          <Badge variant="secondary" className="text-[9px] font-mono px-1.5 py-0 h-4 bg-amber-500/10 text-amber-500 border-0">
-                            {items.length}
-                          </Badge>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title={activeFilter?.layerId === layer.id && activeFilter?.styleUrl === styleName ? "Filtreyi Kaldır (Tümünü Göster)" : "Sadece Bu Stili Göster (Solo)"}
+                              className={cn(
+                                "h-5 px-1.5 py-0 text-[8.5px] font-mono rounded flex items-center gap-1 transition-colors",
+                                activeFilter?.layerId === layer.id && activeFilter?.styleUrl === styleName ? "bg-amber-500 text-white font-bold" : "bg-accent/50 text-muted-foreground hover:bg-amber-500/20 hover:text-foreground"
+                              )}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (activeFilter?.layerId === layer.id && activeFilter?.styleUrl === styleName) {
+                                  setActiveFilter(null);
+                                } else {
+                                  setActiveFilter({ layerId: layer.id, styleUrl: styleName });
+                                }
+                              }}
+                            >
+                              <Eye className="w-2.5 h-2.5" />
+                              {activeFilter?.layerId === layer.id && activeFilter?.styleUrl === styleName ? "Tümü" : "Solo"}
+                            </Button>
+                            <Badge variant="secondary" className="text-[9px] font-mono px-1.5 py-0 h-4 bg-amber-500/10 text-amber-500 border-0">
+                              {items.length}
+                            </Badge>
+                          </div>
                         </div>
                         <div 
                           className="divide-y divide-border/30 max-h-[140px] overflow-y-auto"
