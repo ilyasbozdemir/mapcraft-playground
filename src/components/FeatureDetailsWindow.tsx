@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, 
@@ -28,19 +28,16 @@ export function FeatureDetailsWindow() {
   const [isGeocoding, setIsGeocoding] = useState(false);
   const constraintsRef = useRef(null);
 
-  const layer = useMemo(() => 
-    layers.find((l): l is import('@/types/geo').MapLayer => l.id === selectedFeature?.layerId),
-    [layers, selectedFeature]
-  );
+  const layer = layers.find(l => l.id === selectedFeature?.layerId);
 
-  const feature = useMemo(() => 
-    layer?.data.features.find((f, i) => 
-      (f.id !== undefined ? f.id === selectedFeature?.featureId : i.toString() === selectedFeature?.featureId.toString())
-    ),
-    [layer, selectedFeature]
-  );
+  const feature = layer?.data?.features?.find((f, i) => {
+    if (!selectedFeature) return false;
+    if (i.toString() === selectedFeature.featureId?.toString()) return true;
+    if (f.id !== undefined && f.id.toString() === selectedFeature.featureId?.toString()) return true;
+    return false;
+  });
 
-  const stats = useMemo(() => {
+  const stats = (() => {
     if (!feature) return null;
     if (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon') {
       const area = calculateArea(feature as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>);
@@ -54,7 +51,7 @@ export function FeatureDetailsWindow() {
       return [{ label: 'Length', value: length.toFixed(3) + ' km' }];
     }
     return null;
-  }, [feature]);
+  })();
 
   if (!selectedFeature || !layer || !feature) return null;
 
@@ -70,7 +67,7 @@ export function FeatureDetailsWindow() {
     const newData = {
       ...layer.data,
       features: layer.data.features.map((f, i) => 
-        (f.id !== undefined ? f.id === selectedFeature.featureId : i.toString() === selectedFeature.featureId.toString())
+        (i.toString() === selectedFeature.featureId.toString() || (f.id !== undefined && f.id.toString() === selectedFeature.featureId.toString()))
           ? { ...f, properties: newProps }
           : f
       )
@@ -96,7 +93,7 @@ export function FeatureDetailsWindow() {
     const newData = {
       ...layer.data,
       features: layer.data.features.map((f, i) => 
-        (f.id !== undefined ? f.id === selectedFeature.featureId : i.toString() === selectedFeature.featureId.toString())
+        (i.toString() === selectedFeature.featureId.toString() || (f.id !== undefined && f.id.toString() === selectedFeature.featureId.toString()))
           ? { ...f, properties: newProps }
           : f
       )
@@ -158,7 +155,7 @@ export function FeatureDetailsWindow() {
     const newData = {
       ...layer.data,
       features: layer.data.features.filter((f, i) => 
-        (f.id !== undefined ? f.id !== selectedFeature.featureId : i.toString() !== selectedFeature.featureId.toString())
+        !(i.toString() === selectedFeature.featureId.toString() || (f.id !== undefined && f.id.toString() === selectedFeature.featureId.toString()))
       )
     };
     
