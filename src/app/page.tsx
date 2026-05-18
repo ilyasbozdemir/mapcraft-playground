@@ -15,7 +15,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { LayerPanel } from '@/components/LayerPanel';
 import { FileUploader } from '@/components/FileUploader';
-import { AttributeTable } from '@/components/AttributeTable';
 import { useMapStore } from '@/hooks/useMapStore';
 import { BaseLayerType } from '@/types/geo';
 import { cn } from '@/lib/utils';
@@ -157,7 +156,6 @@ export default function Home() {
         <div className="flex-1 w-full h-full relative">
           <MapView />
           <MapToolbar />
-          <AttributeTable />
           <FeatureDetailsWindow />
         </div>
 

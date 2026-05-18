@@ -20,7 +20,9 @@ import {
   Activity,
   Square,
   FolderTree,
-  Sparkles
+  Sparkles,
+  Target,
+  Info
 } from 'lucide-react';
 import { useMapStore } from '@/hooks/useMapStore';
 import { Button } from '@/components/ui/button';
@@ -45,6 +47,8 @@ import { pointsToPolygon } from '@/lib/TurfUtils';
 
 export function LayerPanel() {
   const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
+  const [displayLimits, setDisplayLimits] = useState<Record<string, number>>({});
+  const [expandedProps, setExpandedProps] = useState<Record<string, boolean>>({});
   const { 
     layers, 
     groups,
@@ -375,59 +379,139 @@ export function LayerPanel() {
                 <span className="text-[9px] font-normal text-muted-foreground/70">({analysis.total} total)</span>
               </div>
               <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1 custom-scrollbar">
-                {Object.entries(analysis.folders).map(([folderName, items]) => (
-                  <div key={folderName} className="border border-border/40 rounded-lg overflow-hidden bg-accent/10">
-                    <div className="flex items-center justify-between px-2.5 py-1.5 bg-accent/30 border-b border-border/30">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <FolderTree className="w-3.5 h-3.5 text-primary/70 shrink-0" />
-                        <span className="text-[10px] font-bold truncate text-foreground">{folderName}</span>
-                      </div>
-                      <Badge variant="secondary" className="text-[9px] font-mono px-1.5 py-0 h-4">
-                        {items.length}
-                      </Badge>
-                    </div>
-                    <div className="divide-y divide-border/30 max-h-[140px] overflow-y-auto">
-                      {items.slice(0, 50).map(({ feature, index }) => {
-                        const featId = feature.id ?? index;
-                        const isSelected = selectedFeature?.layerId === layer.id && selectedFeature?.featureId === featId;
-                        const gType = feature.geometry?.type;
-                        const name = feature.properties?.name || feature.properties?.Name || feature.properties?.title || `Feature #${index + 1}`;
-                        
-                        return (
-                          <div
-                            key={featId}
-                            onClick={() => setSelectedFeature({ layerId: layer.id, featureId: featId })}
-                            className={cn(
-                              "flex items-center justify-between px-2.5 py-1.5 text-[10px] cursor-pointer transition-colors hover:bg-primary/10",
-                              isSelected ? "bg-primary/15 font-bold text-primary" : "text-muted-foreground hover:text-foreground"
-                            )}
-                          >
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              {gType === 'Point' || gType === 'MultiPoint' ? (
-                                <MapPin className="w-3 h-3 text-emerald-500 shrink-0" />
-                              ) : gType === 'LineString' || gType === 'MultiLineString' ? (
-                                <Activity className="w-3 h-3 text-blue-500 shrink-0" />
-                              ) : (
-                                <Square className="w-3 h-3 text-purple-500 shrink-0" />
-                              )}
-                              <span className="truncate">{name}</span>
-                            </div>
-                            {feature.properties && Object.keys(feature.properties).length > 0 && (
-                              <span className="text-[9px] font-mono text-muted-foreground/50 shrink-0 ml-1">
-                                {Object.keys(feature.properties).length} props
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
-                      {items.length > 50 && (
-                        <div className="text-[9px] text-center py-1 text-muted-foreground/70 bg-accent/10 font-medium">
-                          + {items.length - 50} more features
+                {Object.entries(analysis.folders).map(([folderName, items]) => {
+                  const folderKey = `${layer.id}-${folderName}`;
+                  const currentLimit = displayLimits[folderKey] || 50;
+
+                  return (
+                    <div key={folderName} className="border border-border/40 rounded-lg overflow-hidden bg-accent/10">
+                      <div className="flex items-center justify-between px-2.5 py-1.5 bg-accent/30 border-b border-border/30">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <FolderTree className="w-3.5 h-3.5 text-primary/70 shrink-0" />
+                          <span className="text-[10px] font-bold truncate text-foreground">{folderName}</span>
                         </div>
-                      )}
+                        <Badge variant="secondary" className="text-[9px] font-mono px-1.5 py-0 h-4">
+                          {items.length}
+                        </Badge>
+                      </div>
+                      <div 
+                        className="divide-y divide-border/30 max-h-[140px] overflow-y-auto"
+                        onScroll={(e) => {
+                          const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+                          if (scrollHeight - scrollTop - clientHeight < 40) {
+                            if (currentLimit < items.length) {
+                              setDisplayLimits(prev => ({
+                                ...prev,
+                                [folderKey]: Math.min((prev[folderKey] || 50) + 100, items.length)
+                              }));
+                            }
+                          }
+                        }}
+                      >
+                        {items.slice(0, currentLimit).map(({ feature, index }) => {
+                          const featId = index.toString();
+                          const isSelected = selectedFeature?.layerId === layer.id && selectedFeature?.featureId === featId;
+                          const gType = feature.geometry?.type;
+                          const props = feature.properties || {};
+                          const name = props.name || props.Name || props.title || `Feature #${index + 1}`;
+                          
+                          // Öne çıkan diğer nitelik (sub-label / kategori / stil)
+                          const subLabel = props.styleUrl || props.category || props.Category || props.type || props.Type || props.class || props.description;
+                          const propKeys = Object.keys(props);
+                          const propKeyStr = `${layer.id}-${featId}`;
+                          const isPropsExpanded = expandedProps[propKeyStr] || false;
+
+                          return (
+                            <div key={`${layer.id}-${folderName}-${index}`} className="flex flex-col border-b border-border/20 last:border-none">
+                              <div
+                                onClick={() => setSelectedFeature({ layerId: layer.id, featureId: featId })}
+                                className={cn(
+                                  "flex items-center justify-between px-2.5 py-1.5 text-[10px] cursor-pointer transition-colors group/feat",
+                                  isSelected ? "bg-primary/15 font-bold text-primary" : "text-muted-foreground hover:bg-primary/10 hover:text-foreground"
+                                )}
+                              >
+                                <div className="flex items-center gap-1.5 min-w-0 flex-1 pr-2">
+                                  {gType === 'Point' || gType === 'MultiPoint' ? (
+                                    <MapPin className="w-3 h-3 text-emerald-500 shrink-0" />
+                                  ) : gType === 'LineString' || gType === 'MultiLineString' ? (
+                                    <Activity className="w-3 h-3 text-blue-500 shrink-0" />
+                                  ) : (
+                                    <Square className="w-3 h-3 text-purple-500 shrink-0" />
+                                  )}
+                                  <div className="flex flex-col min-w-0 flex-1">
+                                    <span className="truncate font-semibold text-foreground">{name}</span>
+                                    {subLabel && (
+                                      <span className="truncate text-[8.5px] text-muted-foreground/80 font-mono -mt-0.5">
+                                        {String(subLabel).replace(/^#/, '')}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-1 shrink-0">
+                                  {propKeys.length > 0 && (
+                                    <Button
+                                      variant="ghost" 
+                                      size="sm"
+                                      title="Öznitelikleri Göster / Gizle"
+                                      className={cn(
+                                        "h-5 px-1.5 py-0 text-[8.5px] font-mono rounded hover:bg-accent hover:text-accent-foreground",
+                                        isPropsExpanded ? "bg-primary/20 text-primary font-bold" : "text-muted-foreground/70"
+                                      )}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setExpandedProps(prev => ({ ...prev, [propKeyStr]: !isPropsExpanded }));
+                                      }}
+                                    >
+                                      <Info className="w-2.5 h-2.5 mr-1 inline-block" />
+                                      {propKeys.length} props
+                                    </Button>
+                                  )}
+                                  <div 
+                                    title="Haritada Odaklan (Focus)"
+                                    className="w-5 h-5 rounded flex items-center justify-center opacity-0 group-hover/feat:opacity-100 transition-opacity bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedFeature({ layerId: layer.id, featureId: featId });
+                                    }}
+                                  >
+                                    <Target className="w-3 h-3" />
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Genişletilmiş Öznitelik Tablosu (Expanded Props) */}
+                              {isPropsExpanded && propKeys.length > 0 && (
+                                <div className="bg-accent/30 p-2 border-t border-border/30 text-[9px] space-y-1 font-mono cursor-default" onClick={e => e.stopPropagation()}>
+                                  <div className="text-[8px] font-black uppercase tracking-wider text-muted-foreground mb-1 border-b border-border/40 pb-0.5 flex items-center justify-between">
+                                    <span>Nitelik Detayları (Attributes)</span>
+                                    <span className="text-primary font-bold">{name}</span>
+                                  </div>
+                                  <div className="grid grid-cols-1 gap-1 max-h-[120px] overflow-y-auto pr-1 custom-scrollbar">
+                                    {propKeys.map(k => (
+                                      <div key={k} className="flex items-start justify-between gap-2 bg-background/50 px-1.5 py-0.5 rounded border border-border/30">
+                                        <span className="font-bold text-muted-foreground truncate max-w-[100px]">{k}:</span>
+                                        <span className="text-foreground truncate font-sans text-[9.5px]" title={String(props[k])}>
+                                          {String(props[k])}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                        {items.length > currentLimit && (
+                          <div className="text-[9px] text-center py-1.5 text-muted-foreground/60 bg-accent/20 font-medium animate-pulse flex items-center justify-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-ping"></span>
+                            <span>Scroll down to load more ({items.length - currentLimit} remaining)...</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>

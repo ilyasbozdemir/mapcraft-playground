@@ -23,8 +23,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 
 export function AttributeTable() {
-  const { layers, selectedLayerId } = useMapStore();
+  const { layers, selectedLayerId, setSelectedFeature } = useMapStore();
   const selectedLayer = layers.find(l => l.id === selectedLayerId);
+  const [limit, setLimit] = React.useState(100);
 
   if (!selectedLayer) return null;
 
@@ -62,7 +63,7 @@ export function AttributeTable() {
                   </Badge>
                 </DrawerTitle>
                 <p className="text-sm text-muted-foreground">
-                  Displaying {selectedLayer.featureCount} records from the active layer.
+                  Displaying {Math.min(limit, selectedLayer.featureCount)} of {selectedLayer.featureCount} records (Infinite Scroll active).
                 </p>
               </div>
             </div>
@@ -76,7 +77,18 @@ export function AttributeTable() {
           </DrawerHeader>
 
           <div className="flex-1 overflow-hidden border rounded-xl bg-card/50">
-            <ScrollArea className="h-full">
+            <ScrollArea 
+              key={selectedLayerId}
+              className="h-full"
+              onScrollCapture={(e) => {
+                const target = e.target as HTMLDivElement;
+                if (target.scrollHeight - target.scrollTop - target.clientHeight < 100) {
+                  if (limit < selectedLayer.data.features.length) {
+                    setLimit(prev => Math.min(prev + 100, selectedLayer.data.features.length));
+                  }
+                }
+              }}
+            >
               <Table>
                 <TableHeader className="bg-muted/50 sticky top-0 z-10 backdrop-blur-sm">
                   <TableRow>
@@ -89,23 +101,33 @@ export function AttributeTable() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {selectedLayer.data.features.map((feature, idx) => (
-                    <TableRow 
-                      key={idx} 
-                      className="hover:bg-primary/5 cursor-pointer group transition-colors"
-                    >
-                      <TableCell className="text-center font-mono text-[10px] text-muted-foreground">
-                        {idx + 1}
-                      </TableCell>
-                      {columns.map((col) => (
-                        <TableCell key={col} className="text-[11px] font-mono group-hover:text-primary transition-colors">
-                          {String(feature.properties?.[col] ?? '-')}
+                  {selectedLayer.data.features.slice(0, limit).map((feature, idx) => {
+                    const featId = feature.id !== undefined ? feature.id : idx.toString();
+                    return (
+                      <TableRow 
+                        key={featId} 
+                        onClick={() => setSelectedFeature({ layerId: selectedLayer.id, featureId: featId })}
+                        className="hover:bg-primary/5 cursor-pointer group transition-colors"
+                      >
+                        <TableCell className="text-center font-mono text-[10px] text-muted-foreground">
+                          {idx + 1}
                         </TableCell>
-                      ))}
-                    </TableRow>
-                  ))}
+                        {columns.map((col) => (
+                          <TableCell key={col} className="text-[11px] font-mono group-hover:text-primary transition-colors">
+                            {String(feature.properties?.[col] ?? '-')}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
+              {selectedLayer.data.features.length > limit && (
+                <div className="text-center py-3 text-[10px] font-mono text-muted-foreground/70 bg-accent/20 animate-pulse flex items-center justify-center gap-1.5 border-t border-border/30">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-ping"></span>
+                  <span>Scroll down to load more records ({selectedLayer.data.features.length - limit} remaining)...</span>
+                </div>
+              )}
             </ScrollArea>
           </div>
         </div>

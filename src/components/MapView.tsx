@@ -107,22 +107,38 @@ function FeatureFocus() {
     const layer = layers.find(l => l.id === selectedFeature.layerId);
     if (!layer) return;
 
-    const feature = layer.data.features.find((f, i) => 
-      (f.id !== undefined ? f.id === selectedFeature.featureId : i.toString() === selectedFeature.featureId.toString())
-    );
+    const feature = layer.data.features.find((f, i) => {
+      if (f.id !== undefined && f.id.toString() === selectedFeature.featureId.toString()) return true;
+      if (i.toString() === selectedFeature.featureId.toString()) return true;
+      return false;
+    });
 
     if (!feature) return;
 
+    // Ekranın solunda 320px LayerPanel, sağında 320px FeatureDetails penceresi var.
+    // Elemanın panellerin altında kalmaması (ortalanması) için dinamik padding uyguluyoruz.
+    const paddingOpts: import('leaflet').FitBoundsOptions = {
+      paddingTopLeft: [340, 50],     // Sol panel payı + üst boşluk
+      paddingBottomRight: [340, 50], // Sağ panel payı + alt boşluk
+      maxZoom: 18,
+      animate: true,
+      duration: 1.5
+    };
+
     if (feature.geometry.type === 'Point') {
       const coords = (feature.geometry as import('geojson').Point).coordinates;
-      map.flyTo([coords[1], coords[0]], 18, { duration: 1.5 });
+      const offset = 0.0005; // Nokta etrafında küçük bir sanal kutu (yaklaşık 50m)
+      map.fitBounds([
+        [coords[1] - offset, coords[0] - offset],
+        [coords[1] + offset, coords[0] + offset]
+      ], paddingOpts);
     } else {
       const bounds = calculateBounds({ type: 'FeatureCollection', features: [feature] });
       if (bounds) {
         map.fitBounds([
           [bounds[0], bounds[1]],
           [bounds[2], bounds[3]]
-        ], { padding: [100, 100], animate: true, duration: 1.5 });
+        ], paddingOpts);
       }
     }
   }, [selectedFeature, layers, map]);
@@ -365,10 +381,21 @@ export default function MapView() {
         L.DomEvent.stopPropagation(e);
         setSelectedFeature({ 
           layerId, 
-          featureId: feature.id !== undefined ? feature.id : featureIndex.toString() 
+          featureId: featureIndex.toString() 
         });
       }
     });
+
+    // Poligon / Çizgi / Nokta üzerine isim (name) basma mantığı
+    const props = feature.properties || {};
+    const name = props.name || props.Name || props.title || props.id || '';
+    if (name) {
+      leafletLayer.bindTooltip(String(name), {
+        permanent: viewport.zoom >= 14, // 14 zoom ve üzerinde kalıcı göster
+        direction: 'center',
+        className: 'polygon-label bg-background/85 backdrop-blur-xs text-[9.5px] font-bold px-1.5 py-0.5 rounded border border-primary/30 shadow-xs text-foreground font-mono pointer-events-none'
+      });
+    }
   };
 
   const getTileUrl = () => {
