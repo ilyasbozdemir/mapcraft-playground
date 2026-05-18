@@ -413,9 +413,9 @@ export default function MapView() {
     const name = props.name || props.Name || props.title || props.id || '';
     if (name) {
       leafletLayer.bindTooltip(String(name), {
-        permanent: viewport.zoom >= 18, // 18 zoom ve üzerinde kalıcı göster
+        permanent: true,
         direction: 'center',
-        className: 'polygon-label bg-background/85 backdrop-blur-xs text-[9.5px] font-bold px-1.5 py-0.5 rounded border border-primary/30 shadow-xs text-foreground font-mono pointer-events-none'
+        className: 'polygon-label zoom-dependent-label bg-background/85 backdrop-blur-xs text-[9.5px] font-bold px-1.5 py-0.5 rounded border border-primary/30 shadow-xs text-foreground font-mono pointer-events-none'
       });
     }
   };
@@ -426,7 +426,7 @@ export default function MapView() {
   };
 
   return (
-    <div className={cn("w-full h-full relative", drawingMode !== 'none' && "cursor-crosshair")}>
+    <div data-zoom={Math.floor(viewport.zoom)} className={cn("w-full h-full relative map-zoom-wrapper", drawingMode !== 'none' && "cursor-crosshair")}>
       <MapContainer 
         center={[39, 35]} 
         zoom={6} 
@@ -455,7 +455,7 @@ export default function MapView() {
 
         {visibleLayers.map((layer) => (
           <GeoJSON 
-            key={`${layer.id}-${layer.color}-${drawingMode}-${layer.renderedCount}-${viewport.zoom}`}
+            key={`${layer.id}-${layer.color}-${drawingMode}`}
             data={layer.culledData}
             style={() => getStyle(layer)}
             pointToLayer={(feature, latlng) => {
@@ -463,10 +463,18 @@ export default function MapView() {
                 return L.circleMarker(latlng, { radius: 0, opacity: 0, fillOpacity: 0, interactive: false });
               }
               const featureIndex = getFeatureIndex(layer.data.features, feature);
-              return L.marker(latlng, {
+              const marker = L.marker(latlng, {
                 draggable: drawingMode === 'edit',
                 title: feature.properties?.name || 'Point',
               }).on('dragend', (e) => handleMarkerDragEnd(layer.id, featureIndex, e));
+
+              marker.on('click', (e) => {
+                if (drawingMode !== 'none') return;
+                L.DomEvent.stopPropagation(e);
+                setSelectedFeature({ layerId: layer.id, featureId: featureIndex.toString() });
+              });
+
+              return marker;
             }}
             onEachFeature={(feature, leafletLayer) => {
               const featureIndex = getFeatureIndex(layer.data.features, feature);
@@ -477,7 +485,7 @@ export default function MapView() {
       </MapContainer>
 
       {/* Studio Viewport HUD (Heads-Up Display) Paneli */}
-      <div className="absolute bottom-6 right-6 z-[1000] bg-background/85 backdrop-blur-md border border-border/60 p-4 rounded-2xl shadow-2xl flex flex-col gap-2 text-xs font-mono min-w-[280px] pointer-events-auto">
+      <div className="absolute bottom-6 right-6 z-1000 bg-background/85 backdrop-blur-md border border-border/60 p-4 rounded-2xl shadow-2xl flex flex-col gap-2 text-xs font-mono min-w-[280px] pointer-events-auto">
         <div className="flex items-center justify-between border-b border-border/50 pb-2">
           <span className="font-semibold text-primary flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>

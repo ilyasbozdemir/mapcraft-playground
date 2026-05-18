@@ -215,3 +215,27 @@
 .animate-pulse-slow {
   animation: pulse-slow 3s ease-in-out infinite;
 }
+
+/* Harita Zoom Seviyesine Göre Tooltip / Label Gizleme (Kullanıcı İsteği: zoom < 18 ise gösterme) */
+div[data-zoom="0"] .zoom-dependent-label,
+div[data-zoom="1"] .zoom-dependent-label,
+div[data-zoom="2"] .zoom-dependent-label,
+div[data-zoom="3"] .zoom-dependent-label,
+div[data-zoom="4"] .zoom-dependent-label,
+div[data-zoom="5"] .zoom-dependent-label,
+div[data-zoom="6"] .zoom-dependent-label,
+div[data-zoom="7"] .zoom-dependent-label,
+div[data-zoom="8"] .zoom-dependent-label,
+div[data-zoom="9"] .zoom-dependent-label,
+div[data-zoom="10"] .zoom-dependent-label,
+div[data-zoom="11"] .zoom-dependent-label,
+div[data-zoom="12"] .zoom-dependent-label,
+div[data-zoom="13"] .zoom-dependent-label,
+div[data-zoom="14"] .zoom-dependent-label,
+div[data-zoom="15"] .zoom-dependent-label,
+div[data-zoom="16"] .zoom-dependent-label,
+div[data-zoom="17"] .zoom-dependent-label {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}

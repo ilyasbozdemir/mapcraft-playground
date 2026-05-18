@@ -14,7 +14,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LayerPanel } from '@/components/LayerPanel';
-import { FileUploader } from '@/components/FileUploader';
 import { useMapStore } from '@/hooks/useMapStore';
 import { BaseLayerType } from '@/types/geo';
 import { cn } from '@/lib/utils';
@@ -49,15 +48,15 @@ import {
 import { FeatureDetailsWindow } from '@/components/FeatureDetailsWindow';
 
 export default function Home() {
-  const { layers, baseLayer, setBaseLayer, customBaseUrl, setCustomBaseUrl } = useMapStore();
+  const { baseLayer, setBaseLayer, customBaseUrl, setCustomBaseUrl } = useMapStore();
 
   const BASE_LAYER_OPTIONS = [
-    { id: 'osm', label: 'Sokak (OSM Standard)', icon: Globe },
-    { id: 'satellite', label: 'Uydu (Google Hybrid)', icon: Sun },
-    { id: 'dark', label: 'Karanlık (CartoDB Dark)', icon: Moon },
-    { id: 'topo', label: 'Topoğrafya (OpenTopo)', icon: MapIcon },
-    { id: 'terrain', label: 'Arazi & Dağlar (Esri Terrain)', icon: Navigation2 },
-    { id: 'custom', label: 'Özel Altlık (Custom URL)', icon: Plus },
+    { id: 'osm', label: 'Sokak Haritası (OSM Standard)', icon: Globe },
+    { id: 'satellite', label: 'Uydu & Canlı Görünüm (Google Hybrid)', icon: Sun },
+    { id: 'dark', label: 'Gece Modu (CartoDB Dark)', icon: Moon },
+    { id: 'topo', label: 'Topoğrafik & Yükseklik (OpenTopo)', icon: MapIcon },
+    { id: 'terrain', label: 'Fiziki Arazi & Su Kaynakları (Esri Terrain)', icon: Navigation2 },
+    { id: 'custom', label: 'Özel Altlık Sunucusu (Custom WMS/XYZ)', icon: Plus },
   ];
 
   return (
@@ -95,7 +94,7 @@ export default function Home() {
                   MAPCRAFT <span className="text-primary font-mono not-italic">LAB</span>
                 </h1>
                 <div className="flex items-center gap-1.5 mt-1">
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                  <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
                   <p className="text-[9px] text-muted-foreground font-black uppercase tracking-[0.2em] leading-none">Pro Engine v1.2</p>
                 </div>
               </div>
