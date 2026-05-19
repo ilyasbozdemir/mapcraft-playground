@@ -31,22 +31,79 @@ export function DrawingLayer() {
   } = useMapStore();
   const [points, setPoints] = useState<L.LatLng[]>([]);
   const [mousePos, setMousePos] = useState<L.LatLng | null>(null);
-  const [selectedPointIndices, setSelectedPointIndices] = useState<{ layerId: string; index: number }[]>([]);
+  const [selectedVertices, setSelectedVertices] = useState<{
+    layerId: string;
+    featureIndex: number;
+    coordIndex: number;
+    coords: [number, number];
+  }[]>([]);
 
   const clearDrawing = useCallback(() => {
     setPoints([]);
     setMousePos(null);
-    setSelectedPointIndices([]);
+    setSelectedVertices([]);
     setMeasurementResult(null);
   }, [setMeasurementResult]);
 
+  // Load selected layer's vertices when entering 'select-points' mode
   useEffect(() => {
-    setPoints([]);
-    setMousePos(null);
-    setSelectedPointIndices([]);
-  }, [drawingMode]);
+    if (drawingMode === 'select-points') {
+      const activeLayerId = useMapStore.getState().selectedLayerId;
+      const activeLayer = layers.find(l => l.id === activeLayerId);
+      if (activeLayer && activeLayer.visible) {
+        const initialVertices: typeof selectedVertices = [];
+        activeLayer.data.features.forEach((f, featureIndex) => {
+          const geom = f.geometry;
+          if (!geom) return;
+          if (geom.type === 'Point') {
+            initialVertices.push({
+              layerId: activeLayer.id,
+              featureIndex,
+              coordIndex: 0,
+              coords: geom.coordinates as [number, number]
+            });
+          } else if (geom.type === 'MultiPoint' || geom.type === 'LineString') {
+            (geom.coordinates as [number, number][]).forEach((coords, coordIndex) => {
+              initialVertices.push({
+                layerId: activeLayer.id,
+                featureIndex,
+                coordIndex,
+                coords
+              });
+            });
+          } else if (geom.type === 'Polygon') {
+            const outerRing = geom.coordinates[0] as [number, number][];
+            const pointsToLoad = outerRing.slice(0, -1); // skip duplicate closing coordinate
+            pointsToLoad.forEach((coords, coordIndex) => {
+              initialVertices.push({
+                layerId: activeLayer.id,
+                featureIndex,
+                coordIndex,
+                coords
+              });
+            });
+          }
+        });
+        
+        const timer = setTimeout(() => {
+          setSelectedVertices(initialVertices);
+          if (initialVertices.length > 0) {
+            toast.info(`${activeLayer.name} tabakasındaki ${initialVertices.length} nokta otomatik olarak seçildi.`);
+          }
+        }, 0);
+        return () => clearTimeout(timer);
+      }
+    } else {
+      const timer = setTimeout(() => {
+        setPoints([]);
+        setMousePos(null);
+        setSelectedVertices([]);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [drawingMode, layers]);
 
-  const finishDrawing = useCallback(() => {
+  const finishDrawing = useCallback((finalPoints?: L.LatLng[]) => {
     if (drawingMode === 'measure-distance' || drawingMode === 'measure-area') {
        clearDrawing();
        setDrawingMode('none');
@@ -54,17 +111,12 @@ export function DrawingLayer() {
     }
 
     if (drawingMode === 'select-points') {
-      if (selectedPointIndices.length < 3) {
+      if (selectedVertices.length < 3) {
         toast.error('Select at least 3 points to create a polygon');
         return;
       }
 
-      const polygonPoints = selectedPointIndices.map(item => {
-        const layer = layers.find(l => l.id === item.layerId);
-        const feature = layer?.data.features[item.index];
-        const coords = (feature?.geometry as GeoJSON.Point).coordinates;
-        return [coords[0], coords[1]];
-      });
+      const polygonPoints = selectedVertices.map(item => [item.coords[0], item.coords[1]]);
 
       const polygon = pointsToPolygon(polygonPoints as number[][]);
       if (polygon) {
@@ -88,7 +140,16 @@ export function DrawingLayer() {
       return;
     }
 
-    if (points.length < (drawingMode === 'polygon' ? 3 : drawingMode === 'line' ? 2 : 1)) {
+    const rawPoints = finalPoints || points;
+    
+    // Dedup consecutive identical coordinates (common on double click)
+    const activePoints = rawPoints.filter((p, index) => {
+      if (index === 0) return true;
+      const prev = rawPoints[index - 1];
+      return p.lat !== prev.lat || p.lng !== prev.lng;
+    });
+
+    if (activePoints.length < (drawingMode === 'polygon' ? 3 : drawingMode === 'line' ? 2 : 1)) {
       toast.error('Not enough points to create geometry');
       return;
     }
@@ -97,7 +158,7 @@ export function DrawingLayer() {
     let name = '';
 
     if (drawingMode === 'polygon') {
-      const coords = [...points, points[0]].map(p => [p.lng, p.lat]);
+      const coords = [...activePoints, activePoints[0]].map(p => [p.lng, p.lat]);
       geojson = {
         type: 'FeatureCollection',
         features: [{
@@ -111,7 +172,7 @@ export function DrawingLayer() {
       };
       name = 'New Polygon';
     } else if (drawingMode === 'line') {
-      const coords = points.map(p => [p.lng, p.lat]);
+      const coords = activePoints.map(p => [p.lng, p.lat]);
       geojson = {
         type: 'FeatureCollection',
         features: [{
@@ -127,7 +188,7 @@ export function DrawingLayer() {
     } else {
       geojson = {
         type: 'FeatureCollection',
-        features: points.map((p, i) => ({
+        features: activePoints.map((p, i) => ({
           type: 'Feature',
           properties: { name: `New Point ${i + 1}`, createdAt: new Date().toISOString() },
           geometry: {
@@ -157,16 +218,16 @@ export function DrawingLayer() {
     toast.success(`Created ${name}`);
     clearDrawing();
     setDrawingMode('none');
-  }, [points, drawingMode, addLayer, clearDrawing, setDrawingMode, setSelectedLayerId, selectedPointIndices, layers]);
+  }, [points, drawingMode, addLayer, clearDrawing, setDrawingMode, setSelectedLayerId, selectedVertices]);
 
   const canFinish = useMemo(() => {
     if (drawingMode === 'polygon' || drawingMode === 'select-points') {
-      return drawingMode === 'select-points' ? selectedPointIndices.length >= 3 : points.length >= 3;
+      return drawingMode === 'select-points' ? selectedVertices.length >= 3 : points.length >= 3;
     }
     if (drawingMode === 'line') return points.length >= 2;
     if (drawingMode === 'point') return points.length >= 1;
     return false;
-  }, [drawingMode, points.length, selectedPointIndices.length]);
+  }, [drawingMode, points.length, selectedVertices.length]);
 
   const SNAP_THRESHOLD = 20; // pixels
 
@@ -231,8 +292,20 @@ export function DrawingLayer() {
     contextmenu(e) {
       if (drawingMode !== 'none' && drawingMode !== 'edit') {
         L.DomEvent.stopPropagation(e.originalEvent);
-        if (canFinish) {
-          finishDrawing();
+        const snapped = getSnappedPoint(e.latlng, map);
+        const finalPoint = snapped || e.latlng;
+        
+        // Check if finalPoint is already identical to the last point to avoid duplicates
+        const lastPoint = points[points.length - 1];
+        const newPoints = lastPoint && lastPoint.lat === finalPoint.lat && lastPoint.lng === finalPoint.lng
+          ? points
+          : [...points, finalPoint];
+
+        const reqCount = drawingMode === 'polygon' ? 3 : drawingMode === 'line' ? 2 : 1;
+        if (newPoints.length >= reqCount) {
+          finishDrawing(newPoints);
+        } else {
+          toast.error('Not enough points to create geometry');
         }
       }
     },
@@ -250,38 +323,149 @@ export function DrawingLayer() {
 
   return (
     <>
-      {/* Existing Points for selection mode */}
-      {drawingMode === 'select-points' && layers.map(layer => 
-        layer.visible && layer.data.features.map((f, i) => {
-          if (f.geometry.type !== 'Point') return null;
-          const coords = (f.geometry as GeoJSON.Point).coordinates;
-          const isSelected = selectedPointIndices.some(s => s.layerId === layer.id && s.index === i);
-          
-          return (
-            <CircleMarker 
-              key={`${layer.id}-${i}`}
-              center={[coords[1], coords[0]]}
-              radius={8}
-              eventHandlers={{
-                click: (e) => {
-                  L.DomEvent.stopPropagation(e);
-                  if (isSelected) {
-                    setSelectedPointIndices(prev => prev.filter(s => !(s.layerId === layer.id && s.index === i)));
-                  } else {
-                    setSelectedPointIndices(prev => [...prev, { layerId: layer.id, index: i }]);
+      {/* Existing Points/Vertices for selection mode */}
+      {drawingMode === 'select-points' && layers.map(layer => {
+        if (!layer.visible) return null;
+        return layer.data.features.map((f, featureIndex) => {
+          const geom = f.geometry;
+          if (!geom) return null;
+
+          const isVertexSelected = (coordIndex: number) => {
+            return selectedVertices.some(v => 
+              v.layerId === layer.id && 
+              v.featureIndex === featureIndex && 
+              v.coordIndex === coordIndex
+            );
+          };
+
+          const toggleVertex = (coordIndex: number, coords: [number, number]) => {
+            setSelectedVertices(prev => {
+              const exists = prev.some(v => 
+                v.layerId === layer.id && 
+                v.featureIndex === featureIndex && 
+                v.coordIndex === coordIndex
+              );
+              if (exists) {
+                return prev.filter(v => 
+                  !(v.layerId === layer.id && 
+                    v.featureIndex === featureIndex && 
+                    v.coordIndex === coordIndex)
+                );
+              } else {
+                return [...prev, {
+                  layerId: layer.id,
+                  featureIndex,
+                  coordIndex,
+                  coords
+                }];
+              }
+            });
+          };
+
+          if (geom.type === 'Point') {
+            const coords = geom.coordinates as [number, number];
+            const isSelected = isVertexSelected(0);
+            return (
+              <CircleMarker 
+                key={`${layer.id}-${featureIndex}-0`}
+                center={[coords[1], coords[0]]}
+                radius={8}
+                eventHandlers={{
+                  click: (e) => {
+                    L.DomEvent.stopPropagation(e);
+                    toggleVertex(0, coords);
                   }
-                }
-              }}
-              pathOptions={{
-                color: isSelected ? '#22c55e' : '#3b82f6',
-                fillColor: isSelected ? '#22c55e' : 'white',
-                fillOpacity: 0.8,
-                weight: 3
-              }}
-            />
-          );
-        })
-      )}
+                }}
+                pathOptions={{
+                  color: isSelected ? '#22c55e' : '#3b82f6',
+                  fillColor: isSelected ? '#22c55e' : 'white',
+                  fillOpacity: 0.8,
+                  weight: 3
+                }}
+              />
+            );
+          }
+
+          if (geom.type === 'MultiPoint') {
+            return (geom.coordinates as [number, number][]).map((coords, coordIndex) => {
+              const isSelected = isVertexSelected(coordIndex);
+              return (
+                <CircleMarker 
+                  key={`${layer.id}-${featureIndex}-${coordIndex}`}
+                  center={[coords[1], coords[0]]}
+                  radius={8}
+                  eventHandlers={{
+                    click: (e) => {
+                      L.DomEvent.stopPropagation(e);
+                      toggleVertex(coordIndex, coords);
+                    }
+                  }}
+                  pathOptions={{
+                    color: isSelected ? '#22c55e' : '#3b82f6',
+                    fillColor: isSelected ? '#22c55e' : 'white',
+                    fillOpacity: 0.8,
+                    weight: 3
+                  }}
+                />
+              );
+            });
+          }
+
+          if (geom.type === 'LineString') {
+            return (geom.coordinates as [number, number][]).map((coords, coordIndex) => {
+              const isSelected = isVertexSelected(coordIndex);
+              return (
+                <CircleMarker 
+                  key={`${layer.id}-${featureIndex}-${coordIndex}`}
+                  center={[coords[1], coords[0]]}
+                  radius={8}
+                  eventHandlers={{
+                    click: (e) => {
+                      L.DomEvent.stopPropagation(e);
+                      toggleVertex(coordIndex, coords);
+                    }
+                  }}
+                  pathOptions={{
+                    color: isSelected ? '#22c55e' : '#eab308',
+                    fillColor: isSelected ? '#22c55e' : 'white',
+                    fillOpacity: 0.8,
+                    weight: 3
+                  }}
+                />
+              );
+            });
+          }
+
+          if (geom.type === 'Polygon') {
+            const outerRing = geom.coordinates[0] as [number, number][];
+            const pointsToRender = outerRing.slice(0, -1);
+            return pointsToRender.map((coords, coordIndex) => {
+              const isSelected = isVertexSelected(coordIndex);
+              return (
+                <CircleMarker 
+                  key={`${layer.id}-${featureIndex}-${coordIndex}`}
+                  center={[coords[1], coords[0]]}
+                  radius={8}
+                  eventHandlers={{
+                    click: (e) => {
+                      L.DomEvent.stopPropagation(e);
+                      toggleVertex(coordIndex, coords);
+                    }
+                  }}
+                  pathOptions={{
+                    color: isSelected ? '#22c55e' : '#a855f7',
+                    fillColor: isSelected ? '#22c55e' : 'white',
+                    fillOpacity: 0.8,
+                    weight: 3
+                  }}
+                />
+              );
+            });
+          }
+
+          return null;
+        });
+      })}
 
       {/* Current Points */}
       {points.map((p, i) => {
@@ -333,7 +517,7 @@ export function DrawingLayer() {
                   ? (measurementResult.value > 1000000 ? (measurementResult.value / 1000000).toFixed(2) + ' km²' : measurementResult.value.toLocaleString() + ' m²')
                   : measurementResult.value.toFixed(3) + ' ' + (measurementResult.unit || 'km')
               ) : (
-                drawingMode === 'select-points' ? selectedPointIndices.length : points.length
+                drawingMode === 'select-points' ? selectedVertices.length : points.length
               )}
             </span>
             {(points.length > 0 || drawingMode === 'select-points') && !measurementResult && (
@@ -363,7 +547,7 @@ export function DrawingLayer() {
                 <Button 
                   size="sm" 
                   className="h-9 px-4 rounded-xl bg-green-500 hover:bg-green-600 text-white flex items-center gap-2 shadow-lg transition-all active:scale-95"
-                  onClick={finishDrawing}
+                  onClick={() => finishDrawing()}
                 >
                   <Check className="w-5 h-5" />
                   <span className="text-xs font-bold uppercase tracking-tight">Confirm</span>
