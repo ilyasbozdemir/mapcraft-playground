@@ -1,0 +1,330 @@
+[
+    {
+        "value": "-3",
+        "label": "İl Seçiniz"
+    },
+    {
+        "value": "23",
+        "label": "Adana"
+    },
+    {
+        "value": "24",
+        "label": "Adıyaman"
+    },
+    {
+        "value": "25",
+        "label": "Afyonkarahisar"
+    },
+    {
+        "value": "26",
+        "label": "Ağrı"
+    },
+    {
+        "value": "90",
+        "label": "Aksaray"
+    },
+    {
+        "value": "27",
+        "label": "Amasya"
+    },
+    {
+        "value": "28",
+        "label": "Ankara"
+    },
+    {
+        "value": "29",
+        "label": "Antalya"
+    },
+    {
+        "value": "97",
+        "label": "Ardahan"
+    },
+    {
+        "value": "30",
+        "label": "Artvin"
+    },
+    {
+        "value": "31",
+        "label": "Aydın"
+    },
+    {
+        "value": "32",
+        "label": "Balıkesir"
+    },
+    {
+        "value": "96",
+        "label": "Bartın"
+    },
+    {
+        "value": "94",
+        "label": "Batman"
+    },
+    {
+        "value": "91",
+        "label": "Bayburt"
+    },
+    {
+        "value": "33",
+        "label": "Bilecik"
+    },
+    {
+        "value": "34",
+        "label": "Bingöl"
+    },
+    {
+        "value": "35",
+        "label": "Bitlis"
+    },
+    {
+        "value": "36",
+        "label": "Bolu"
+    },
+    {
+        "value": "37",
+        "label": "Burdur"
+    },
+    {
+        "value": "38",
+        "label": "Bursa"
+    },
+    {
+        "value": "39",
+        "label": "Çanakkale"
+    },
+    {
+        "value": "40",
+        "label": "Çankırı"
+    },
+    {
+        "value": "41",
+        "label": "Çorum"
+    },
+    {
+        "value": "42",
+        "label": "Denizli"
+    },
+    {
+        "value": "43",
+        "label": "Diyarbakır"
+    },
+    {
+        "value": "103",
+        "label": "Düzce"
+    },
+    {
+        "value": "44",
+        "label": "Edirne"
+    },
+    {
+        "value": "45",
+        "label": "Elazığ"
+    },
+    {
+        "value": "46",
+        "label": "Erzincan"
+    },
+    {
+        "value": "47",
+        "label": "Erzurum"
+    },
+    {
+        "value": "48",
+        "label": "Eskişehir"
+    },
+    {
+        "value": "49",
+        "label": "Gaziantep"
+    },
+    {
+        "value": "50",
+        "label": "Giresun"
+    },
+    {
+        "value": "51",
+        "label": "Gümüşhane"
+    },
+    {
+        "value": "52",
+        "label": "Hakkari"
+    },
+    {
+        "value": "53",
+        "label": "Hatay"
+    },
+    {
+        "value": "98",
+        "label": "Iğdır"
+    },
+    {
+        "value": "54",
+        "label": "Isparta"
+    },
+    {
+        "value": "56",
+        "label": "İstanbul"
+    },
+    {
+        "value": "57",
+        "label": "İzmir"
+    },
+    {
+        "value": "68",
+        "label": "Kahramanmaraş"
+    },
+    {
+        "value": "100",
+        "label": "Karabük"
+    },
+    {
+        "value": "92",
+        "label": "Karaman"
+    },
+    {
+        "value": "58",
+        "label": "Kars"
+    },
+    {
+        "value": "59",
+        "label": "Kastamonu"
+    },
+    {
+        "value": "60",
+        "label": "Kayseri"
+    },
+    {
+        "value": "101",
+        "label": "Kilis"
+    },
+    {
+        "value": "93",
+        "label": "Kırıkkale"
+    },
+    {
+        "value": "61",
+        "label": "Kırklareli"
+    },
+    {
+        "value": "62",
+        "label": "Kırşehir"
+    },
+    {
+        "value": "63",
+        "label": "Kocaeli"
+    },
+    {
+        "value": "64",
+        "label": "Konya"
+    },
+    {
+        "value": "65",
+        "label": "Kütahya"
+    },
+    {
+        "value": "66",
+        "label": "Malatya"
+    },
+    {
+        "value": "67",
+        "label": "Manisa"
+    },
+    {
+        "value": "69",
+        "label": "Mardin"
+    },
+    {
+        "value": "55",
+        "label": "Mersin"
+    },
+    {
+        "value": "70",
+        "label": "Muğla"
+    },
+    {
+        "value": "71",
+        "label": "Muş"
+    },
+    {
+        "value": "72",
+        "label": "Nevşehir"
+    },
+    {
+        "value": "73",
+        "label": "Niğde"
+    },
+    {
+        "value": "74",
+        "label": "Ordu"
+    },
+    {
+        "value": "102",
+        "label": "Osmaniye"
+    },
+    {
+        "value": "75",
+        "label": "Rize"
+    },
+    {
+        "value": "76",
+        "label": "Sakarya"
+    },
+    {
+        "value": "77",
+        "label": "Samsun"
+    },
+    {
+        "value": "85",
+        "label": "Şanlıurfa"
+    },
+    {
+        "value": "78",
+        "label": "Siirt"
+    },
+    {
+        "value": "79",
+        "label": "Sinop"
+    },
+    {
+        "value": "95",
+        "label": "Şırnak"
+    },
+    {
+        "value": "80",
+        "label": "Sivas"
+    },
+    {
+        "value": "81",
+        "label": "Tekirdağ"
+    },
+    {
+        "value": "82",
+        "label": "Tokat"
+    },
+    {
+        "value": "83",
+        "label": "Trabzon"
+    },
+    {
+        "value": "84",
+        "label": "Tunceli"
+    },
+    {
+        "value": "86",
+        "label": "Uşak"
+    },
+    {
+        "value": "87",
+        "label": "Van"
+    },
+    {
+        "value": "99",
+        "label": "Yalova"
+    },
+    {
+        "value": "88",
+        "label": "Yozgat"
+    },
+    {
+        "value": "89",
+        "label": "Zonguldak"
+    }
+]

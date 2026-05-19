@@ -1,0 +1,238 @@
+[
+    {
+        "value": "-3",
+        "label": "Mahalle Seçiniz"
+    },
+    {
+        "value": "133466",
+        "label": "Ağaççatı Köyü"
+    },
+    {
+        "value": "133465",
+        "label": "Akçamescit"
+    },
+    {
+        "value": "133156",
+        "label": "Ardıçkaya Köyü"
+    },
+    {
+        "value": "152091",
+        "label": "Aşağıçağlar Köyü"
+    },
+    {
+        "value": "132999",
+        "label": "Balkusan Köyü"
+    },
+    {
+        "value": "149716",
+        "label": "Başpınar"
+    },
+    {
+        "value": "133157",
+        "label": "Boyalık Köyü"
+    },
+    {
+        "value": "133155",
+        "label": "Bucak"
+    },
+    {
+        "value": "133158",
+        "label": "Çamlıca Köyü"
+    },
+    {
+        "value": "133000",
+        "label": "Çatalbadem"
+    },
+    {
+        "value": "148612",
+        "label": "Çavuş Köyü"
+    },
+    {
+        "value": "150630",
+        "label": "Çınarlısu"
+    },
+    {
+        "value": "148621",
+        "label": "Değirmenlik"
+    },
+    {
+        "value": "133001",
+        "label": "Elmayurdu Köyü"
+    },
+    {
+        "value": "133159",
+        "label": "Eskice Köyü"
+    },
+    {
+        "value": "133317",
+        "label": "Evsin Köyü"
+    },
+    {
+        "value": "154364",
+        "label": "Gökçekent Köyü"
+    },
+    {
+        "value": "133002",
+        "label": "Gökçeseki Köyü"
+    },
+    {
+        "value": "133003",
+        "label": "Görmeli Köyü"
+    },
+    {
+        "value": "149275",
+        "label": "Güllük"
+    },
+    {
+        "value": "151012",
+        "label": "Gülpazar"
+    },
+    {
+        "value": "150064",
+        "label": "Güneyyurt/Aralık"
+    },
+    {
+        "value": "151446",
+        "label": "Güneyyurt/Cami"
+    },
+    {
+        "value": "152157",
+        "label": "Güneyyurt/Habib"
+    },
+    {
+        "value": "149562",
+        "label": "Güneyyurt/Kışlacık"
+    },
+    {
+        "value": "150842",
+        "label": "Güneyyurt/Oda"
+    },
+    {
+        "value": "180837",
+        "label": "Güneyyurt/Pınargözü"
+    },
+    {
+        "value": "149900",
+        "label": "Güneyyurt/Yenimahalle"
+    },
+    {
+        "value": "133630",
+        "label": "İkizçınar Köyü"
+    },
+    {
+        "value": "147272",
+        "label": "Karalar"
+    },
+    {
+        "value": "150110",
+        "label": "Katranlı Köyü"
+    },
+    {
+        "value": "154159",
+        "label": "Kayaönü Köyü"
+    },
+    {
+        "value": "132703",
+        "label": "Kazancı/Gökçeler"
+    },
+    {
+        "value": "149063",
+        "label": "Kazancı/Türbeseki"
+    },
+    {
+        "value": "154010",
+        "label": "Kazancı/Uluköy"
+    },
+    {
+        "value": "154188",
+        "label": "Kazancı/Yukarımahalle"
+    },
+    {
+        "value": "153986",
+        "label": "Kebendibi"
+    },
+    {
+        "value": "152018",
+        "label": "Keçipazar"
+    },
+    {
+        "value": "149951",
+        "label": "Keşirlik"
+    },
+    {
+        "value": "152591",
+        "label": "Merkez/Kazancı"
+    },
+    {
+        "value": "133629",
+        "label": "Meydan"
+    },
+    {
+        "value": "150434",
+        "label": "Olukpınar Köyü"
+    },
+    {
+        "value": "149247",
+        "label": "Orta"
+    },
+    {
+        "value": "154001",
+        "label": "Orta/Güneyyurt"
+    },
+    {
+        "value": "149937",
+        "label": "Pamuklu Köyü"
+    },
+    {
+        "value": "152780",
+        "label": "Pınarönü Köyü"
+    },
+    {
+        "value": "132702",
+        "label": "Sandıklı"
+    },
+    {
+        "value": "133467",
+        "label": "Sarıvadi Köyü"
+    },
+    {
+        "value": "133154",
+        "label": "Seyran"
+    },
+    {
+        "value": "149869",
+        "label": "Susaklı"
+    },
+    {
+        "value": "133316",
+        "label": "Taşbaşı"
+    },
+    {
+        "value": "152178",
+        "label": "Tepebaşı Köyü"
+    },
+    {
+        "value": "151013",
+        "label": "Tepecik"
+    },
+    {
+        "value": "151509",
+        "label": "Yalındal Köyü"
+    },
+    {
+        "value": "150229",
+        "label": "Yaylapazarı Köyü"
+    },
+    {
+        "value": "133004",
+        "label": "Yerbağ Köyü"
+    },
+    {
+        "value": "150524",
+        "label": "Yeşilköy Köyü"
+    },
+    {
+        "value": "151623",
+        "label": "Yukarıçağlar Köyü"
+    }
+]
