@@ -587,9 +587,25 @@ export function LayerPanel() {
             <p className="text-[10px] text-muted-foreground font-medium mt-1">Management Console</p>
           </div>
         </div>
-        <Button variant="ghost" size="icon" className="rounded-xl" onClick={createGroup}>
-          <FolderPlus className="w-4 h-4" />
-        </Button>
+        <div className="flex items-center gap-1 shrink-0">
+          {activeFilter && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              title="Aktif filtreyi kaldır ve tümünü göster"
+              className="h-7 text-[9px] font-bold uppercase tracking-wider px-2 border-primary/30 hover:bg-primary/10 text-primary"
+              onClick={() => {
+                setActiveFilter(null);
+                toast.success('Filtreler temizlendi, tüm katmanlar gösteriliyor');
+              }}
+            >
+              Tümünü Göster
+            </Button>
+          )}
+          <Button variant="ghost" size="icon" className="rounded-xl h-8 w-8" onClick={createGroup}>
+            <FolderPlus className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
       
       <Separator className="opacity-50" />

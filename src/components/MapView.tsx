@@ -31,8 +31,8 @@ if (typeof window !== 'undefined') {
 }
 
 // O(1) Karmaşıklığında Feature Index Önbelleklemesi
-const featureIndexCache = new WeakMap<any, number>();
-const getFeatureIndex = (features: any[], feature: any): number => {
+const featureIndexCache = new WeakMap<object, number>();
+const getFeatureIndex = (features: import('geojson').Feature[], feature: import('geojson').Feature): number => {
   if (featureIndexCache.has(feature)) return featureIndexCache.get(feature)!;
   const idx = features.findIndex(f => f === feature || (f.id !== undefined && feature.id !== undefined && f.id === feature.id));
   const finalIdx = idx !== -1 ? idx : 0;
@@ -45,7 +45,7 @@ function isFeatureInBoundsFast(feature: Feature, bounds: L.LatLngBounds): boolea
   if (!feature.geometry) return false;
   try {
     const geom = feature.geometry;
-    let coords: any[] = [];
+    let coords: import('geojson').Position[] = [];
     if (geom.type === 'Point') {
       const [lng, lat] = geom.coordinates;
       return bounds.contains([lat, lng]);
@@ -279,9 +279,11 @@ function MVTVectorGridLayer({ layer }: { layer: MapLayer }) {
           }
         },
         interactive: true,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         getFeatureId: (f: any) => f.properties?.id || f.id || crypto.randomUUID(),
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       vectorGrid.on('click', (e: any) => {
         if (e.layer && e.layer.properties) {
           toast.info(`MVT Obje Tıklandı: ${e.layer.properties.name || e.layer.properties.id || 'Nitelik Tablosunda'}`);
@@ -329,25 +331,30 @@ export default function MapView() {
   const visibleLayers = layers.filter(l => l.visible && l.type !== 'mvt').map(layer => {
     // 1. Önce aktif filtre varsa veriyi filtrele (Solo Mode)
     let featuresToProcess = layer.data.features;
-    if (activeFilter && activeFilter.layerId === layer.id) {
-      featuresToProcess = featuresToProcess.filter((feat, featIdx) => {
-        if (activeFilter.featureId !== undefined) {
-          return featIdx.toString() === activeFilter.featureId.toString() || (feat.id !== undefined && feat.id.toString() === activeFilter.featureId.toString());
-        }
-        const props = feat.properties || {};
-        if (activeFilter.styleUrl) {
-          const sVal = props.styleUrl || props.StyleUrl || props.style || props.Style || props.class || props.Class || props.kml_style;
-          const cleanS = sVal ? String(sVal).replace(/^#/, '') : 'Default Style';
-          return cleanS === activeFilter.styleUrl;
-        }
-        if (activeFilter.folderName) {
-          const sVal = props.styleUrl || props.StyleUrl || props.style || props.Style || props.class || props.Class || props.kml_style;
-          const cleanS = sVal ? String(sVal).replace(/^#/, '') : null;
-          const fName = props.folder || props.Folder || props.layer || props.Layer || props.category || props.Category || cleanS || 'General Features';
-          return fName === activeFilter.folderName;
-        }
-        return true;
-      });
+    if (activeFilter) {
+      if (activeFilter.layerId !== layer.id) {
+        // Solo mod aktif olduğunda diğer katmanları tamamen gizle
+        featuresToProcess = [];
+      } else {
+        featuresToProcess = featuresToProcess.filter((feat, featIdx) => {
+          if (activeFilter.featureId !== undefined) {
+            return featIdx.toString() === activeFilter.featureId.toString() || (feat.id !== undefined && feat.id.toString() === activeFilter.featureId.toString());
+          }
+          const props = feat.properties || {};
+          if (activeFilter.styleUrl) {
+            const sVal = props.styleUrl || props.StyleUrl || props.style || props.Style || props.class || props.Class || props.kml_style;
+            const cleanS = sVal ? String(sVal).replace(/^#/, '') : 'Default Style';
+            return cleanS === activeFilter.styleUrl;
+          }
+          if (activeFilter.folderName) {
+            const sVal = props.styleUrl || props.StyleUrl || props.style || props.Style || props.class || props.Class || props.kml_style;
+            const cleanS = sVal ? String(sVal).replace(/^#/, '') : null;
+            const fName = props.folder || props.Folder || props.layer || props.Layer || props.category || props.Category || cleanS || 'General Features';
+            return fName === activeFilter.folderName;
+          }
+          return true;
+        });
+      }
     }
 
     // 2. Viewport culling ve LOD hesaplamaları
@@ -455,7 +462,7 @@ export default function MapView() {
 
         {visibleLayers.map((layer) => (
           <GeoJSON 
-            key={`${layer.id}-${layer.color}-${drawingMode}`}
+            key={`${layer.id}-${layer.color}-${drawingMode}-${activeFilter ? `${activeFilter.layerId}-${activeFilter.folderName || ''}-${activeFilter.featureId || ''}` : 'none'}-${layer.renderedCount}`}
             data={layer.culledData}
             style={() => getStyle(layer)}
             pointToLayer={(feature, latlng) => {
